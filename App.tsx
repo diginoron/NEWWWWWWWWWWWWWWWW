@@ -137,7 +137,7 @@ const App: React.FC = () => {
         </div>
       </main>
       <footer className="text-center text-slate-500 mt-8 text-sm">
-        <p>توسعه یافته با ❤️ توسط هوش مصنوعی Gemini</p>
+        <p>توسعه یافته توسط دیجی نورون</p>
       </footer>
     </div>
   );
