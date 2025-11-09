@@ -1,27 +1,9 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI } from "@google/genai";
 import type { ArticleResponse } from '../types';
 
 export const config = {
   runtime: 'edge',
 };
-
-const articleSchema = {
-  type: Type.OBJECT,
-  properties: {
-    title: { type: Type.STRING, description: "عنوان کامل مقاله" },
-    authors: { type: Type.ARRAY, items: { type: Type.STRING }, description: "لیست نویسندگان مقاله" },
-    publicationYear: { type: Type.NUMBER, description: "سال انتشار مقاله، باید 2024 یا 2025 باشد" },
-    summary: { type: Type.STRING, description: "خلاصه ای کوتاه (2-3 جمله) از مقاله" },
-    link: { type: Type.STRING, description: "لینک مستقیم و قابل دسترسی به صفحه مقاله در Google Scholar یا منبع اصلی" },
-  },
-  required: ["title", "authors", "publicationYear", "summary", "link"],
-};
-
-const responseSchema = {
-    type: Type.ARRAY,
-    items: articleSchema,
-};
-
 
 export default async function handler(request: Request) {
   if (request.method !== 'POST') {
@@ -54,10 +36,15 @@ export default async function handler(request: Request) {
       به عنوان یک دستیار تحقیق حرفه‌ای، 5 مقاله علمی انگلیسی جدید از Google Scholar بر اساس کلیدواژه‌های زیر پیدا کن: "${keywords}".
       شرایط:
       1. مقالات باید در سال 2024 یا 2025 منتشر شده باشند.
-      2. برای هر مقاله، عنوان، لیست نویسندگان، سال انتشار، خلاصه‌ای کوتاه و یک لینک مستقیم به صفحه مقاله را ارائه بده.
+      2. برای هر مقاله، اطلاعات زیر را استخراج کن:
+         - title: عنوان کامل مقاله
+         - authors: لیست نویسندگان مقاله
+         - publicationYear: سال انتشار مقاله (فقط عدد)
+         - summary: خلاصه‌ای کوتاه (2-3 جمله) از مقاله
+         - link: لینک مستقیم و قابل دسترسی به صفحه مقاله
       3. از ابزار جستجوی گوگل برای یافتن اطلاعات واقعی و به‌روز استفاده کن.
 
-      خروجی باید دقیقاً با فرمت JSON و اسکیمای ارائه شده مطابقت داشته باشد.
+      خروجی باید یک رشته JSON معتبر باشد که یک آرایه از اشیاء مقاله را در خود جای داده است. از هیچ قالب‌بندی دیگری مانند Markdown (مثلا \`\`\`json) استفاده نکن. فقط خود آرایه JSON خام را برگردان.
     `;
 
     const response = await ai.models.generateContent({
@@ -65,8 +52,6 @@ export default async function handler(request: Request) {
       contents: [{ parts: [{ text: prompt }] }],
       config: {
         tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
       },
     });
 
@@ -75,7 +60,9 @@ export default async function handler(request: Request) {
       throw new Error("پاسخ دریافتی از API فاقد محتوای متنی است یا به دلیل خط‌مشی‌های ایمنی مسدود شده است.");
     }
     
-    const parsedResponse = JSON.parse(jsonText.trim());
+    const cleanedJsonText = jsonText.trim().replace(/^```json\s*/, '').replace(/```$/, '');
+    const parsedResponse = JSON.parse(cleanedJsonText);
+
 
     if (!Array.isArray(parsedResponse)) {
         throw new Error("ساختار JSON دریافت شده از API یک آرایه نیست.");
