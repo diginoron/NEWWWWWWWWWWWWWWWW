@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import { generateThesisSuggestions } from './services/geminiService';
 import type { ThesisSuggestionResponse } from './types';
@@ -27,7 +26,7 @@ const App: React.FC = () => {
       setSuggestions(result);
     } catch (err) {
       if (err instanceof Error) {
-        setError(`خطا در ارتباط با سرویس هوش مصنوعی: ${err.message}. لطفا از فعال بودن کلید API خود در متغیرهای محیطی Vercel (با نام API_KEY) اطمینان حاصل کنید.`);
+        setError(`خطا در دریافت پیشنهادها: ${err.message}. لطفا اتصال اینترنت خود را بررسی کرده و مجددا تلاش کنید.`);
       } else {
         setError('یک خطای ناشناخته رخ داد.');
       }
@@ -87,7 +86,6 @@ const App: React.FC = () => {
       </main>
       <footer className="text-center text-slate-500 mt-8 text-sm">
         <p>توسعه یافته با ❤️ توسط هوش مصنوعی Gemini</p>
-         <p className="mt-2">برای استفاده از این اپلیکیشن، باید کلید Gemini API خود را در متغیرهای محیطی Vercel با نام <code className="bg-slate-700 px-1 rounded">API_KEY</code> تنظیم کنید.</p>
       </footer>
     </div>
   );
