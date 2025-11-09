@@ -73,8 +73,12 @@ export default async function handler(request: Request) {
       },
     });
 
-    const jsonText = response.text.trim();
-    const parsedResponse = JSON.parse(jsonText);
+    const jsonText = response.text;
+    if (!jsonText) {
+      throw new Error("پاسخ دریافتی از API فاقد محتوای متنی است یا به دلیل خط‌مشی‌های ایمنی مسدود شده است.");
+    }
+
+    const parsedResponse = JSON.parse(jsonText.trim());
 
     // Basic validation of the parsed response structure
     if (
