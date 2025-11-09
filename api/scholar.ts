@@ -33,15 +33,31 @@ export default async function handler(request: Request) {
     }
 
     const prompt = `
-      5 مقاله علمی جدید از Google Scholar در مورد "${keywords}" که در سال 2024 یا 2025 منتشر شده‌اند، پیدا کن.
-      از ابزار جستجوی گوگل استفاده کن.
-      برای هر مقاله، این موارد را ارائه بده: title, authors (به صورت لیست رشته‌ها), publicationYear (به صورت عدد), summary (خلاصه 2-3 جمله‌ای), و یک link مستقیم.
-      کل پاسخ تو باید فقط و فقط یک آرایه JSON خام از اشیاء باشد، بدون هیچ متن اضافی، توضیح یا قالب‌بندی Markdown.
-      مثال فرمت: [{"title": "t", "authors": ["a", "b"], "publicationYear": 2024, "summary": "s", "link": "l"}]
+      وظیفه شما این است که به عنوان یک API عمل کنید. 3 مقاله علمی جدید و مرتبط از Google Scholar در مورد "${keywords}" پیدا کن.
+      از ابزار جستجوی گوگل برای یافتن اطلاعات بروز استفاده کن.
+      برای هر مقاله، اطلاعات زیر را استخراج کن:
+      - title: عنوان کامل مقاله
+      - authors: آرایه‌ای از نام نویسندگان
+      - publicationYear: سال انتشار (فقط عدد)
+      - summary: خلاصه‌ای کوتاه (حدود 2 جمله)
+      - link: لینک مستقیم به مقاله یا صفحه آن
+
+      پاسخ شما باید **فقط و فقط** یک آرایه JSON معتبر باشد. هیچ متن، توضیح، مقدمه، نتیجه‌گیری یا قالب‌ بندی Markdown مانند \`\`\`json در پاسخ شما نباید وجود داشته باشد. فقط آرایه JSON خام.
+
+      مثال فرمت خروجی:
+      [
+        {
+          "title": "Example Title 1",
+          "authors": ["Author A", "Author B"],
+          "publicationYear": 2024,
+          "summary": "This is a summary of the first article.",
+          "link": "https://example.com/article1"
+        }
+      ]
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-pro",
+      model: "gemini-2.5-flash",
       contents: [{ parts: [{ text: prompt }] }],
       config: {
         tools: [{ googleSearch: {} }],
