@@ -76,9 +76,35 @@ export default async function handler(request: Request) {
 
   } catch (error) {
     console.error("Error in scholar API route:", error);
-    const errorMessage = error instanceof Error ? error.message : "یک خطای ناشناخته رخ داد.";
-    return new Response(JSON.stringify({ error: `فراخوانی API با شکست مواجه شد: ${errorMessage}` }), {
-      status: 500,
+
+    let errorMessage = "یک خطای ناشناخته در سرور رخ داد.";
+    let statusCode = 500;
+
+    if (error instanceof Error) {
+        // The Gemini SDK can throw an error where the message is a JSON string from the API.
+        if (error.message.includes('"code"') && error.message.includes('"message"')) {
+             try {
+                const apiErrorBody = JSON.parse(error.message);
+                const apiError = apiErrorBody.error;
+
+                if (apiError.code === 503 || apiError.status === 'UNAVAILABLE') {
+                    errorMessage = "سرویس هوش مصنوعی در حال حاضر با ترافیک بالایی مواجه است. لطفاً چند لحظه بعد دوباره تلاش کنید.";
+                    statusCode = 503;
+                } else {
+                    errorMessage = `سرویس هوش مصنوعی با خطا مواجه شد: ${apiError.message}`;
+                    statusCode = typeof apiError.code === 'number' ? apiError.code : 500;
+                }
+             } catch(e) {
+                 // Fallback if parsing fails for some reason
+                 errorMessage = `فراخوانی API با شکست مواجه شد: ${error.message}`;
+             }
+        } else {
+            errorMessage = `فراخوانی API با شکست مواجه شد: ${error.message}`;
+        }
+    }
+
+    return new Response(JSON.stringify({ error: errorMessage }), {
+      status: statusCode,
       headers: { 'Content-Type': 'application/json' },
     });
   }
