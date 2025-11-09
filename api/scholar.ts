@@ -33,25 +33,19 @@ export default async function handler(request: Request) {
     }
 
     const prompt = `
-      به عنوان یک دستیار تحقیق حرفه‌ای، 5 مقاله علمی انگلیسی جدید از Google Scholar بر اساس کلیدواژه‌های زیر پیدا کن: "${keywords}".
-      شرایط:
-      1. مقالات باید در سال 2024 یا 2025 منتشر شده باشند.
-      2. برای هر مقاله، اطلاعات زیر را استخراج کن:
-         - title: عنوان کامل مقاله
-         - authors: لیست نویسندگان مقاله
-         - publicationYear: سال انتشار مقاله (فقط عدد)
-         - summary: خلاصه‌ای کوتاه (2-3 جمله) از مقاله
-         - link: لینک مستقیم و قابل دسترسی به صفحه مقاله
-      3. از ابزار جستجوی گوگل برای یافتن اطلاعات واقعی و به‌روز استفاده کن.
-
-      خروجی باید یک رشته JSON معتبر باشد که یک آرایه از اشیاء مقاله را در خود جای داده است. از هیچ قالب‌بندی دیگری مانند Markdown (مثلا \`\`\`json) استفاده نکن. فقط خود آرایه JSON خام را برگردان.
+      5 مقاله علمی جدید از Google Scholar در مورد "${keywords}" که در سال 2024 یا 2025 منتشر شده‌اند، پیدا کن.
+      از ابزار جستجوی گوگل استفاده کن.
+      برای هر مقاله، این موارد را ارائه بده: title, authors (به صورت لیست رشته‌ها), publicationYear (به صورت عدد), summary (خلاصه 2-3 جمله‌ای), و یک link مستقیم.
+      کل پاسخ تو باید فقط و فقط یک آرایه JSON خام از اشیاء باشد، بدون هیچ متن اضافی، توضیح یا قالب‌بندی Markdown.
+      مثال فرمت: [{"title": "t", "authors": ["a", "b"], "publicationYear": 2024, "summary": "s", "link": "l"}]
     `;
 
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-2.5-pro",
       contents: [{ parts: [{ text: prompt }] }],
       config: {
         tools: [{ googleSearch: {} }],
+        temperature: 0.5,
       },
     });
 
@@ -60,17 +54,16 @@ export default async function handler(request: Request) {
       throw new Error("پاسخ دریافتی از API فاقد محتوای متنی است یا به دلیل خط‌مشی‌های ایمنی مسدود شده است.");
     }
     
-    // More robust JSON parsing: find and extract the JSON array from the response text.
-    const startIndex = jsonText.indexOf('[');
-    const endIndex = jsonText.lastIndexOf(']');
+    // Use a regular expression to find the JSON array within the response text.
+    // This is more robust against extra text or markdown code fences.
+    const jsonMatch = jsonText.match(/(\[[\s\S]*\])/);
 
-    if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+    if (!jsonMatch || !jsonMatch[0]) {
         throw new Error(`آرایه JSON معتبر در پاسخ مدل یافت نشد. پاسخ دریافت شده: ${jsonText}`);
     }
     
-    const jsonString = jsonText.substring(startIndex, endIndex + 1);
+    const jsonString = jsonMatch[0];
     const parsedResponse = JSON.parse(jsonString);
-
 
     if (!Array.isArray(parsedResponse)) {
         throw new Error("ساختار JSON دریافت شده از API یک آرایه نیست.");
