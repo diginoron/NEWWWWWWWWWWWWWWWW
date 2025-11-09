@@ -20,7 +20,11 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ articles }) => {
       <h2 className="text-2xl font-semibold text-cyan-400 mb-6">مقالات پیشنهادی</h2>
       <div className="space-y-6">
         {articles.map((article, index) => (
-          <div key={index} className="border-b border-slate-700 pb-6 last:border-b-0 last:pb-0">
+          <div 
+            key={index} 
+            dir="ltr" 
+            className="border-b border-slate-700 pb-6 last:border-b-0 last:pb-0 text-left"
+          >
             <h3 className="text-xl font-bold text-slate-100">
               <a 
                 href={article.link} 
