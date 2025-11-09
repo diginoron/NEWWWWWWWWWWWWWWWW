@@ -60,8 +60,16 @@ export default async function handler(request: Request) {
       throw new Error("پاسخ دریافتی از API فاقد محتوای متنی است یا به دلیل خط‌مشی‌های ایمنی مسدود شده است.");
     }
     
-    const cleanedJsonText = jsonText.trim().replace(/^```json\s*/, '').replace(/```$/, '');
-    const parsedResponse = JSON.parse(cleanedJsonText);
+    // More robust JSON parsing: find and extract the JSON array from the response text.
+    const startIndex = jsonText.indexOf('[');
+    const endIndex = jsonText.lastIndexOf(']');
+
+    if (startIndex === -1 || endIndex === -1 || endIndex < startIndex) {
+        throw new Error(`آرایه JSON معتبر در پاسخ مدل یافت نشد. پاسخ دریافت شده: ${jsonText}`);
+    }
+    
+    const jsonString = jsonText.substring(startIndex, endIndex + 1);
+    const parsedResponse = JSON.parse(jsonString);
 
 
     if (!Array.isArray(parsedResponse)) {
