@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { generateThesisSuggestions, findRelevantArticles } from './services/geminiService';
-import type { ThesisSuggestionResponse, Article } from './types';
+import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod } from './types';
 import Header from './components/Header';
 import SuggestionCard from './components/SuggestionCard';
 import ArticleCard from './components/ArticleCard';
@@ -9,10 +9,20 @@ import ErrorAlert from './components/ErrorAlert';
 import { BookOpenIcon, ChevronLeftIcon, SearchIcon } from './components/Icons';
 
 type AppMode = 'topic' | 'article';
+type TopicMode = 'simple' | 'advanced';
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>('topic');
-  const [inputValue, setInputValue] = useState<string>('');
+  const [topicMode, setTopicMode] = useState<TopicMode>('simple');
+
+  // State for inputs
+  const [fieldOfStudy, setFieldOfStudy] = useState('');
+  const [articleKeywords, setArticleKeywords] = useState('');
+  const [advancedKeywords, setAdvancedKeywords] = useState('');
+  const [academicLevel, setAcademicLevel] = useState<AcademicLevel>('arshad');
+  const [researchMethod, setResearchMethod] = useState<ResearchMethod>('quantitative');
+  
+  // State for results
   const [suggestions, setSuggestions] = useState<ThesisSuggestionResponse | null>(null);
   const [articles, setArticles] = useState<Article[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -20,15 +30,34 @@ const App: React.FC = () => {
 
   const handleModeChange = (newMode: AppMode) => {
     setMode(newMode);
-    setInputValue('');
+    setFieldOfStudy('');
+    setArticleKeywords('');
+    setAdvancedKeywords('');
     setSuggestions(null);
     setArticles(null);
     setError(null);
   };
+  
+  const handleTopicModeChange = (newTopicMode: TopicMode) => {
+    setTopicMode(newTopicMode);
+    setSuggestions(null);
+    setError(null);
+  };
+
 
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputValue.trim() || isLoading) return;
+    if (isLoading) return;
+    
+    // Validate inputs before setting loading state
+    if (mode === 'topic' && !fieldOfStudy.trim()) {
+        setError("لطفاً رشته تحصیلی را وارد کنید.");
+        return;
+    }
+    if (mode === 'article' && !articleKeywords.trim()) {
+        setError("لطفاً کلیدواژه‌ها را وارد کنید.");
+        return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -37,10 +66,20 @@ const App: React.FC = () => {
 
     try {
       if (mode === 'topic') {
-        const result = await generateThesisSuggestions(inputValue);
-        setSuggestions(result);
-      } else {
-        const result = await findRelevantArticles(inputValue);
+        if (topicMode === 'simple') {
+          const result = await generateThesisSuggestions({ fieldOfStudy });
+          setSuggestions(result);
+        } else { // advanced mode
+          const result = await generateThesisSuggestions({ 
+            fieldOfStudy, 
+            keywords: advancedKeywords, 
+            level: academicLevel, 
+            methodology: researchMethod 
+          });
+          setSuggestions(result);
+        }
+      } else { // article mode
+        const result = await findRelevantArticles(articleKeywords);
         setArticles(result);
       }
     } catch (err) {
@@ -52,17 +91,105 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [inputValue, isLoading, mode]);
+  }, [isLoading, mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, academicLevel, researchMethod]);
   
-  const placeholders = {
-    topic: "رشته تحصیلی خود را وارد کنید (مثلا: مهندسی کامپیوتر)",
-    article: "کلیدواژه‌ها را وارد کنید (مثلا: large language models, AI ethics)"
-  };
+  const isSubmitDisabled = isLoading || (mode === 'topic' && !fieldOfStudy.trim()) || (mode === 'article' && !articleKeywords.trim());
 
   const buttonLabels = {
     topic: "دریافت پیشنهادها",
     article: "جستجوی مقالات"
   };
+
+  const renderSimpleTopicForm = () => (
+     <div className="relative flex-grow">
+        <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400">
+            <BookOpenIcon />
+        </span>
+        <input
+            type="text"
+            value={fieldOfStudy}
+            onChange={(e) => setFieldOfStudy(e.target.value)}
+            placeholder="رشته تحصیلی خود را وارد کنید (مثلا: مهندسی کامپیوتر)"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-lg"
+            disabled={isLoading}
+        />
+    </div>
+  );
+
+  const renderAdvancedTopicForm = () => (
+    <div className="w-full space-y-4">
+        <div className="relative">
+            <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400"><BookOpenIcon /></span>
+            <input
+                type="text"
+                value={fieldOfStudy}
+                onChange={(e) => setFieldOfStudy(e.target.value)}
+                placeholder="* رشته تحصیلی (الزامی)"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-lg"
+                disabled={isLoading}
+            />
+        </div>
+        <div className="relative">
+            <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400"><SearchIcon /></span>
+            <input
+                type="text"
+                value={advancedKeywords}
+                onChange={(e) => setAdvancedKeywords(e.target.value)}
+                placeholder="کلیدواژه‌های اولیه (اختیاری)"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-lg"
+                disabled={isLoading}
+            />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-300">
+            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <h3 className="font-semibold mb-2">مقطع تحصیلی</h3>
+                <div className="flex gap-x-4 gap-y-2 flex-wrap">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="level" value="arshad" checked={academicLevel === 'arshad'} onChange={(e) => setAcademicLevel(e.target.value as AcademicLevel)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        کارشناسی ارشد
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="level" value="doctora" checked={academicLevel === 'doctora'} onChange={(e) => setAcademicLevel(e.target.value as AcademicLevel)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        دکتری
+                    </label>
+                </div>
+            </div>
+            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <h3 className="font-semibold mb-2">روش تحقیق</h3>
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="method" value="quantitative" checked={researchMethod === 'quantitative'} onChange={(e) => setResearchMethod(e.target.value as ResearchMethod)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        کمی
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="method" value="qualitative" checked={researchMethod === 'qualitative'} onChange={(e) => setResearchMethod(e.target.value as ResearchMethod)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        کیفی
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="method" value="mixed" checked={researchMethod === 'mixed'} onChange={(e) => setResearchMethod(e.target.value as ResearchMethod)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        ترکیبی
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+  );
+
+  const renderArticleForm = () => (
+    <div className="relative flex-grow">
+        <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400"><SearchIcon /></span>
+        <input
+            type="text"
+            value={articleKeywords}
+            onChange={(e) => setArticleKeywords(e.target.value)}
+            placeholder="کلیدواژه‌ها را وارد کنید (مثلا: large language models, AI ethics)"
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-lg"
+            disabled={isLoading}
+        />
+    </div>
+  );
+
+  const isAdvancedForm = mode === 'topic' && topicMode === 'advanced';
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center p-4 sm:p-6 lg:p-8">
@@ -71,40 +198,35 @@ const App: React.FC = () => {
         
         <div className="flex justify-center mb-6">
           <div className="bg-slate-800 p-1 rounded-lg flex gap-1">
-            <button
-              onClick={() => handleModeChange('topic')}
-              className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'topic' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
-            >
+            <button onClick={() => handleModeChange('topic')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'topic' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
               پیشنهاد موضوع
             </button>
-            <button
-              onClick={() => handleModeChange('article')}
-              className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'article' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}
-            >
+            <button onClick={() => handleModeChange('article')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'article' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
               جستجوی مقاله
             </button>
           </div>
         </div>
+        
+        {mode === 'topic' && (
+            <div className="flex justify-center mb-4 text-sm">
+                <div className="bg-slate-700/50 p-1 rounded-lg flex gap-1">
+                    <button onClick={() => handleTopicModeChange('simple')} className={`px-3 py-1 rounded-md transition-colors ${topicMode === 'simple' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>ساده</button>
+                    <button onClick={() => handleTopicModeChange('advanced')} className={`px-3 py-1 rounded-md transition-colors ${topicMode === 'advanced' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>پیشرفته</button>
+                </div>
+            </div>
+        )}
+
 
         <div className="bg-slate-800/50 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-2xl border border-slate-700 transition-all duration-300">
-          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-grow">
-              <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400">
-                {mode === 'topic' ? <BookOpenIcon /> : <SearchIcon />}
-              </span>
-              <input
-                type="text"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={placeholders[mode]}
-                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-lg"
-                disabled={isLoading}
-              />
-            </div>
+          <form onSubmit={handleSubmit} className={`flex ${isAdvancedForm ? 'flex-col' : 'flex-col sm:flex-row'} gap-4`}>
+            {mode === 'topic' && topicMode === 'simple' && renderSimpleTopicForm()}
+            {mode === 'topic' && topicMode === 'advanced' && renderAdvancedTopicForm()}
+            {mode === 'article' && renderArticleForm()}
+            
             <button
               type="submit"
-              disabled={isLoading || !inputValue.trim()}
-              className="flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg shadow-cyan-600/30 text-lg"
+              disabled={isSubmitDisabled}
+              className={`flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg shadow-cyan-600/30 text-lg ${isAdvancedForm ? 'w-full' : 'w-full sm:w-auto'}`}
             >
               {isLoading ? (
                 <>

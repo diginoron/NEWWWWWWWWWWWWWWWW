@@ -9,6 +9,9 @@ interface ThesisSuggestionResponse {
   keywords: string[];
   topics: string[];
 }
+type AcademicLevel = 'arshad' | 'doctora';
+type ResearchMethod = 'quantitative' | 'qualitative' | 'mixed';
+
 
 const responseSchema = {
   type: Type.OBJECT,
@@ -45,7 +48,17 @@ export default async function handler(request: Request) {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
   try {
-    const { fieldOfStudy } = await request.json();
+    const { 
+      fieldOfStudy, 
+      keywords, 
+      level, 
+      methodology 
+    }: { 
+      fieldOfStudy: string; 
+      keywords?: string;
+      level?: AcademicLevel;
+      methodology?: ResearchMethod;
+    } = await request.json();
 
     if (!fieldOfStudy || typeof fieldOfStudy !== 'string' || fieldOfStudy.trim() === '') {
       return new Response(JSON.stringify({ error: 'رشته تحصیلی یک مقدار الزامی است.' }), {
@@ -54,13 +67,43 @@ export default async function handler(request: Request) {
       });
     }
 
-    const prompt = `
-      برای رشته تحصیلی "${fieldOfStudy}"، لطفاً موارد زیر را تولید کن:
-      1.  یک لیست از کلیدواژه‌های تخصصی و مهم.
-      2.  یک لیست از موضوعات پیشنهادی برای پایان‌نامه که جدید و کاربردی باشند.
+    const isAdvanced = keywords || level || methodology;
+    let prompt: string;
 
-      خروجی باید دقیقاً با فرمت JSON و اسکیمای ارائه شده مطابقت داشته باشد.
-    `;
+    if (isAdvanced) {
+      const levelText = level === 'arshad' ? 'کارشناسی ارشد' : level === 'doctora' ? 'دکتری' : 'نامشخص';
+      const methodTextMapping = {
+        quantitative: 'کمی',
+        qualitative: 'کیفی',
+        mixed: 'ترکیبی'
+      };
+      const methodText = methodology ? methodTextMapping[methodology] : 'نامشخص';
+
+      prompt = `
+        به عنوان یک مشاور متخصص پایان‌نامه، برای رشته تحصیلی "${fieldOfStudy}" با توجه به اطلاعات تکمیلی زیر، موارد زیر را تولید کن:
+        1.  یک لیست از 5 تا 10 کلیدواژه تخصصی و مهم.
+        2.  یک لیست از 3 تا 5 موضوع پیشنهادی برای پایان‌نامه که جدید، خلاقانه و قابل تحقیق باشند.
+
+        اطلاعات تکمیلی برای ایده پردازی:
+        - کلیدواژه‌های اولیه مدنظر دانشجو: ${keywords || 'ارائه نشده'}
+        - مقطع تحصیلی: ${levelText}
+        - روش تحقیق مورد نظر: ${methodText}
+      `;
+
+      if (level === 'arshad') {
+        prompt += "\n\nنکته مهم: چون مقطع کارشناسی ارشد است، موضوعات باید بیشتر ماهیت «رابطه‌ای» و کاربردی داشته باشند و از پیچیدگی بیش از حد پرهیز شود.";
+      } else if (level === 'doctora') {
+        prompt += "\n\nنکته مهم: چون مقطع دکتری است، موضوعات باید کاملاً نوآورانه، عمیق، دارای جنبه «مدل‌سازی» یا توسعه تئوری باشند و به ادبیات پژوهش اضافه کنند.";
+      }
+    } else {
+      prompt = `
+        برای رشته تحصیلی "${fieldOfStudy}"، لطفاً موارد زیر را تولید کن:
+        1.  یک لیست از 5 تا 10 کلیدواژه تخصصی و مهم.
+        2.  یک لیست از 3 تا 5 موضوع پیشنهادی برای پایان‌نامه که جدید و کاربردی باشند.
+      `;
+    }
+
+    prompt += "\n\nخروجی باید دقیقاً با فرمت JSON و اسکیمای ارائه شده مطابقت داشته باشد. هیچ متن اضافی یا توضیحی خارج از ساختار JSON ارائه نده.";
 
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",

@@ -3,6 +3,16 @@ export interface ThesisSuggestionResponse {
   topics: string[];
 }
 
+export type AcademicLevel = 'arshad' | 'doctora';
+export type ResearchMethod = 'quantitative' | 'qualitative' | 'mixed';
+
+export interface ThesisSuggestionRequest {
+  fieldOfStudy: string;
+  keywords?: string;
+  level?: AcademicLevel;
+  methodology?: ResearchMethod;
+}
+
 export interface Article {
   title: string;
   authors: string[];
