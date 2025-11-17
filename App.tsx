@@ -6,7 +6,7 @@ import SuggestionCard from './components/SuggestionCard';
 import ArticleCard from './components/ArticleCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorAlert from './components/ErrorAlert';
-import { BookOpenIcon, ChevronLeftIcon, SearchIcon } from './components/Icons';
+import { BookOpenIcon, ChevronLeftIcon, SearchIcon, UsersIcon } from './components/Icons';
 
 type AppMode = 'topic' | 'article';
 type TopicMode = 'simple' | 'advanced';
@@ -19,6 +19,7 @@ const App: React.FC = () => {
   const [fieldOfStudy, setFieldOfStudy] = useState('');
   const [articleKeywords, setArticleKeywords] = useState('');
   const [advancedKeywords, setAdvancedKeywords] = useState('');
+  const [targetPopulation, setTargetPopulation] = useState('');
   const [academicLevel, setAcademicLevel] = useState<AcademicLevel>('arshad');
   const [researchMethod, setResearchMethod] = useState<ResearchMethod>('quantitative');
   
@@ -33,6 +34,7 @@ const App: React.FC = () => {
     setFieldOfStudy('');
     setArticleKeywords('');
     setAdvancedKeywords('');
+    setTargetPopulation('');
     setSuggestions(null);
     setArticles(null);
     setError(null);
@@ -74,7 +76,8 @@ const App: React.FC = () => {
             fieldOfStudy, 
             keywords: advancedKeywords, 
             level: academicLevel, 
-            methodology: researchMethod 
+            methodology: researchMethod,
+            targetPopulation: targetPopulation
           });
           setSuggestions(result);
         }
@@ -91,7 +94,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, academicLevel, researchMethod]);
+  }, [isLoading, mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, academicLevel, researchMethod, targetPopulation]);
   
   const isSubmitDisabled = isLoading || (mode === 'topic' && !fieldOfStudy.trim()) || (mode === 'article' && !articleKeywords.trim());
 
@@ -136,6 +139,17 @@ const App: React.FC = () => {
                 value={advancedKeywords}
                 onChange={(e) => setAdvancedKeywords(e.target.value)}
                 placeholder="کلیدواژه‌های اولیه (اختیاری)"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-lg"
+                disabled={isLoading}
+            />
+        </div>
+        <div className="relative">
+            <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400"><UsersIcon /></span>
+            <input
+                type="text"
+                value={targetPopulation}
+                onChange={(e) => setTargetPopulation(e.target.value)}
+                placeholder="جامعه هدف (اختیاری، مثلا: دانشجویان، معلمان)"
                 className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-lg"
                 disabled={isLoading}
             />

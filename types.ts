@@ -11,6 +11,7 @@ export interface ThesisSuggestionRequest {
   keywords?: string;
   level?: AcademicLevel;
   methodology?: ResearchMethod;
+  targetPopulation?: string;
 }
 
 export interface Article {

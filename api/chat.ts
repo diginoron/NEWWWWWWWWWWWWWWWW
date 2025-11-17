@@ -34,12 +34,14 @@ export default async function handler(request: Request) {
       fieldOfStudy, 
       keywords, 
       level, 
-      methodology 
+      methodology,
+      targetPopulation
     }: { 
       fieldOfStudy: string; 
       keywords?: string;
       level?: AcademicLevel;
       methodology?: ResearchMethod;
+      targetPopulation?: string;
     } = await request.json();
 
     if (!fieldOfStudy || typeof fieldOfStudy !== 'string' || fieldOfStudy.trim() === '') {
@@ -49,7 +51,7 @@ export default async function handler(request: Request) {
       });
     }
 
-    const isAdvanced = keywords || level || methodology;
+    const isAdvanced = keywords || level || methodology || targetPopulation;
     let prompt: string;
 
     if (isAdvanced) {
@@ -62,21 +64,35 @@ export default async function handler(request: Request) {
       const methodText = methodology ? methodTextMapping[methodology] : 'نامشخص';
 
       prompt = `
-        به عنوان یک مشاور متخصص پایان‌نامه، برای رشته تحصیلی "${fieldOfStudy}" با توجه به اطلاعات تکمیلی زیر، موارد زیر را تولید کن:
+        به عنوان یک مشاور متخصص پایان‌نامه، برای رشته تحصیلی "${fieldOfStudy}" با توجه به اطلاعات و قوانین زیر، موارد زیر را تولید کن:
         1.  یک لیست از 5 تا 10 کلیدواژه تخصصی و مهم.
         2.  یک لیست از 3 تا 5 موضوع پیشنهادی برای پایان‌نامه که جدید، خلاقانه و قابل تحقیق باشند.
 
-        اطلاعات تکمیلی برای ایده پردازی:
+        ## اطلاعات تکمیلی برای ایده پردازی:
         - کلیدواژه‌های اولیه مدنظر دانشجو: ${keywords || 'ارائه نشده'}
         - مقطع تحصیلی: ${levelText}
         - روش تحقیق مورد نظر: ${methodText}
+        ${targetPopulation ? `- جامعه هدف: ${targetPopulation}` : ''}
+
+        ## قوانین الزامی برای تولید موضوع:
       `;
 
-      if (level === 'arshad') {
-        prompt += "\n\nنکته مهم: چون مقطع کارشناسی ارشد است، موضوعات باید بیشتر ماهیت «رابطه‌ای» و کاربردی داشته باشند و از پیچیدگی بیش از حد پرهیز شود.";
-      } else if (level === 'doctora') {
-        prompt += "\n\nنکته مهم: چون مقطع دکتری است، موضوعات باید کاملاً نوآورانه، عمیق، دارای جنبه «مدل‌سازی» یا توسعه تئوری باشند و به ادبیات پژوهش اضافه کنند.";
+      if (level === 'doctora') {
+        prompt += `\n- موضوعات دکتری باید کاملاً نوآورانه، عمیق، دارای جنبه «توسعه تئوری» باشند و به ادبیات پژوهش اضافه کنند.`;
+      } else if (level === 'arshad') {
+        prompt += `\n- موضوعات کارشناسی ارشد باید بیشتر ماهیت کاربردی داشته باشند و از پیچیدگی بیش از حد پرهیز شود.`;
       }
+      
+      if (level === 'doctora' || methodology === 'mixed') {
+        prompt += `\n- ساختار موضوعات باید در قالب «ارائه مدل» یا «طراحی مدل» (Modeling) باشد.`;
+      } else if (level === 'arshad') { // implies not mixed
+         prompt += `\n- ساختار موضوعات باید «رابطه‌ای» (Relational) باشد و به بررسی رابطه بین دو یا سه متغیر مشخص بپردازند. (مثال: بررسی رابطه متغیر X و متغیر Y بر Z)`;
+      }
+
+      if (targetPopulation) {
+        prompt += `\n- تمامی موضوعات پیشنهادی باید به طور خاص برای جامعه هدف «${targetPopulation}» طراحی شوند و این جامعه در عنوان موضوع ذکر شود.`;
+      }
+
     } else {
       prompt = `
         برای رشته تحصیلی "${fieldOfStudy}"، لطفاً موارد زیر را تولید کن:
