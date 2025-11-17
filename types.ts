@@ -23,3 +23,20 @@ export interface Article {
 }
 
 export type ArticleResponse = Article[];
+
+export interface Methodology {
+  researchTypeAndDesign: string;
+  populationAndSample: string;
+  dataCollectionTools: string;
+  dataAnalysisMethod: string;
+  potentialSoftware: string;
+}
+
+export interface PreProposalResponse {
+  introduction: string;
+  mainObjective: string;
+  specificObjectives: string[];
+  mainQuestion: string;
+  specificQuestions: string[];
+  methodology: Methodology;
+}

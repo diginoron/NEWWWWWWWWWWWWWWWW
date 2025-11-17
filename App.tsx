@@ -1,15 +1,16 @@
 import React, { useState, useCallback } from 'react';
-import { generateThesisSuggestions, findRelevantArticles, translateText } from './services/geminiService';
-import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod } from './types';
+import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal } from './services/geminiService';
+import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse } from './types';
 import Header from './components/Header';
 import SuggestionCard from './components/SuggestionCard';
 import TopicSuggestionCard, { type TopicItem } from './components/TopicSuggestionCard';
 import ArticleCard from './components/ArticleCard';
+import PreProposalCard from './components/PreProposalCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorAlert from './components/ErrorAlert';
-import { BookOpenIcon, ChevronLeftIcon, SearchIcon, UsersIcon } from './components/Icons';
+import { BookOpenIcon, ChevronLeftIcon, FileTextIcon, SearchIcon, UsersIcon } from './components/Icons';
 
-type AppMode = 'topic' | 'article';
+type AppMode = 'topic' | 'article' | 'pre-proposal';
 type TopicMode = 'simple' | 'advanced';
 
 const App: React.FC = () => {
@@ -23,11 +24,13 @@ const App: React.FC = () => {
   const [targetPopulation, setTargetPopulation] = useState('');
   const [academicLevel, setAcademicLevel] = useState<AcademicLevel>('arshad');
   const [researchMethod, setResearchMethod] = useState<ResearchMethod>('quantitative');
+  const [preProposalTopic, setPreProposalTopic] = useState('');
   
   // State for results
   const [suggestions, setSuggestions] = useState<ThesisSuggestionResponse | null>(null);
   const [topicItems, setTopicItems] = useState<TopicItem[]>([]);
   const [articles, setArticles] = useState<Article[] | null>(null);
+  const [preProposal, setPreProposal] = useState<PreProposalResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,9 +40,11 @@ const App: React.FC = () => {
     setArticleKeywords('');
     setAdvancedKeywords('');
     setTargetPopulation('');
+    setPreProposalTopic('');
     setSuggestions(null);
     setTopicItems([]);
     setArticles(null);
+    setPreProposal(null);
     setError(null);
   };
   
@@ -64,12 +69,17 @@ const App: React.FC = () => {
         setError("لطفاً کلیدواژه‌ها را وارد کنید.");
         return;
     }
+    if (mode === 'pre-proposal' && !preProposalTopic.trim()) {
+        setError("لطفاً موضوع پایان‌نامه را وارد کنید.");
+        return;
+    }
 
     setIsLoading(true);
     setError(null);
     setSuggestions(null);
     setTopicItems([]);
     setArticles(null);
+    setPreProposal(null);
 
     try {
       if (mode === 'topic') {
@@ -91,9 +101,12 @@ const App: React.FC = () => {
           isTranslating: false,
           isCopied: false,
         })));
-      } else { // article mode
+      } else if (mode === 'article') {
         const result = await findRelevantArticles(articleKeywords);
         setArticles(result);
+      } else { // pre-proposal mode
+        const result = await generatePreProposal(preProposalTopic);
+        setPreProposal(result);
       }
     } catch (err) {
       if (err instanceof Error) {
@@ -104,7 +117,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, academicLevel, researchMethod, targetPopulation]);
+  }, [isLoading, mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, academicLevel, researchMethod, targetPopulation, preProposalTopic]);
   
   const handleCopyTopic = useCallback((index: number) => {
     const topicText = topicItems[index]?.persian;
@@ -147,11 +160,16 @@ const App: React.FC = () => {
     }
   }, [topicItems]);
   
-  const isSubmitDisabled = isLoading || (mode === 'topic' && !fieldOfStudy.trim()) || (mode === 'article' && !articleKeywords.trim());
+  const isSubmitDisabled = isLoading || 
+    (mode === 'topic' && !fieldOfStudy.trim()) || 
+    (mode === 'article' && !articleKeywords.trim()) ||
+    (mode === 'pre-proposal' && !preProposalTopic.trim());
+
 
   const buttonLabels = {
     topic: "دریافت پیشنهادها",
-    article: "جستجوی مقالات"
+    article: "جستجوی مقالات",
+    'pre-proposal': "ایجاد پیش پروپوزال"
   };
 
   const renderSimpleTopicForm = () => (
@@ -253,8 +271,23 @@ const App: React.FC = () => {
         />
     </div>
   );
+  
+  const renderPreProposalForm = () => (
+    <div className="relative flex-grow">
+        <span className="absolute top-4 right-0 flex items-center pr-4 text-slate-400"><FileTextIcon /></span>
+        <textarea
+            value={preProposalTopic}
+            onChange={(e) => setPreProposalTopic(e.target.value)}
+            placeholder="موضوع دقیق پایان‌نامه خود را اینجا وارد کنید..."
+            className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-lg min-h-[80px] resize-y"
+            disabled={isLoading}
+            rows={3}
+        />
+    </div>
+  );
 
   const isAdvancedForm = mode === 'topic' && topicMode === 'advanced';
+  const isSingleInputForm = (mode === 'topic' && topicMode === 'simple') || mode === 'article' || mode === 'pre-proposal';
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center p-4 sm:p-6 lg:p-8">
@@ -262,12 +295,15 @@ const App: React.FC = () => {
       <main className="w-full max-w-4xl mx-auto flex-grow">
         
         <div className="flex justify-center mb-6">
-          <div className="bg-slate-800 p-1 rounded-lg flex gap-1">
+          <div className="bg-slate-800 p-1 rounded-lg flex gap-1 flex-wrap justify-center">
             <button onClick={() => handleModeChange('topic')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'topic' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
               پیشنهاد موضوع
             </button>
             <button onClick={() => handleModeChange('article')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'article' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
               جستجوی مقاله
+            </button>
+            <button onClick={() => handleModeChange('pre-proposal')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'pre-proposal' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
+              پیش پروپوزال
             </button>
           </div>
         </div>
@@ -283,15 +319,16 @@ const App: React.FC = () => {
 
 
         <div className="bg-slate-800/50 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-2xl border border-slate-700 transition-all duration-300">
-          <form onSubmit={handleSubmit} className={`flex ${isAdvancedForm ? 'flex-col' : 'flex-col sm:flex-row'} gap-4`}>
+          <form onSubmit={handleSubmit} className={`flex ${isAdvancedForm ? 'flex-col' : 'flex-col sm:flex-row'} items-start gap-4`}>
             {mode === 'topic' && topicMode === 'simple' && renderSimpleTopicForm()}
             {mode === 'topic' && topicMode === 'advanced' && renderAdvancedTopicForm()}
             {mode === 'article' && renderArticleForm()}
+            {mode === 'pre-proposal' && renderPreProposalForm()}
             
             <button
               type="submit"
               disabled={isSubmitDisabled}
-              className={`flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg shadow-cyan-600/30 text-lg ${isAdvancedForm ? 'w-full' : 'w-full sm:w-auto'}`}
+              className={`flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg shadow-cyan-600/30 text-lg ${isAdvancedForm ? 'w-full mt-2' : ''} ${isSingleInputForm ? 'w-full sm:w-auto self-center sm:self-auto' : ''}`}
             >
               {isLoading ? (
                 <>
@@ -310,6 +347,7 @@ const App: React.FC = () => {
 
         <div className="mt-8">
           {error && <ErrorAlert message={error} />}
+          
           {suggestions && mode === 'topic' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
               <SuggestionCard title="کلیدواژه‌های پیشنهادی" items={suggestions.keywords} />
@@ -321,9 +359,16 @@ const App: React.FC = () => {
               />
             </div>
           )}
+
           {articles && mode === 'article' && (
              <div className="animate-fade-in">
                 <ArticleCard articles={articles} />
+            </div>
+          )}
+
+          {preProposal && mode === 'pre-proposal' && (
+            <div className="animate-fade-in">
+                <PreProposalCard data={preProposal} />
             </div>
           )}
         </div>
