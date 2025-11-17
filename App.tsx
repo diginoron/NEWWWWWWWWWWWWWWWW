@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal } from './services/geminiService';
-import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse } from './types';
+import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, PreProposalRequest } from './types';
 import Header from './components/Header';
 import SuggestionCard from './components/SuggestionCard';
 import TopicSuggestionCard, { type TopicItem } from './components/TopicSuggestionCard';
@@ -8,10 +8,22 @@ import ArticleCard from './components/ArticleCard';
 import PreProposalCard from './components/PreProposalCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorAlert from './components/ErrorAlert';
-import { BookOpenIcon, ChevronLeftIcon, FileTextIcon, SearchIcon, UsersIcon } from './components/Icons';
+import { BookOpenIcon, ChevronLeftIcon, FileTextIcon, SearchIcon, UsersIcon, HelpCircleIcon } from './components/Icons';
 
 type AppMode = 'topic' | 'article' | 'pre-proposal';
 type TopicMode = 'simple' | 'advanced';
+
+const Tooltip: React.FC<{ text: string }> = ({ text }) => (
+  <div className="relative group flex items-center">
+    <span className="ml-2 text-slate-400 cursor-help">
+      <HelpCircleIcon />
+    </span>
+    <div className="absolute bottom-full right-0 mb-2 hidden group-hover:block w-64 bg-slate-700 text-white text-xs rounded-md py-2 px-3 z-10 shadow-lg text-center">
+      {text}
+    </div>
+  </div>
+);
+
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>('topic');
@@ -60,7 +72,6 @@ const App: React.FC = () => {
     e.preventDefault();
     if (isLoading) return;
     
-    // Validate inputs before setting loading state
     if (mode === 'topic' && !fieldOfStudy.trim()) {
         setError("لطفاً رشته تحصیلی را وارد کنید.");
         return;
@@ -86,7 +97,7 @@ const App: React.FC = () => {
         let result: ThesisSuggestionResponse;
         if (topicMode === 'simple') {
           result = await generateThesisSuggestions({ fieldOfStudy });
-        } else { // advanced mode
+        } else {
           result = await generateThesisSuggestions({ 
             fieldOfStudy, 
             keywords: advancedKeywords, 
@@ -104,8 +115,14 @@ const App: React.FC = () => {
       } else if (mode === 'article') {
         const result = await findRelevantArticles(articleKeywords);
         setArticles(result);
-      } else { // pre-proposal mode
-        const result = await generatePreProposal(preProposalTopic);
+      } else {
+        const params: PreProposalRequest = {
+            topic: preProposalTopic,
+            level: academicLevel,
+            methodology: researchMethod,
+            targetPopulation: targetPopulation,
+        };
+        const result = await generatePreProposal(params);
         setPreProposal(result);
       }
     } catch (err) {
@@ -273,21 +290,77 @@ const App: React.FC = () => {
   );
   
   const renderPreProposalForm = () => (
-    <div className="relative flex-grow">
+    <div className="w-full space-y-4">
+      <div className="relative">
         <span className="absolute top-4 right-0 flex items-center pr-4 text-slate-400"><FileTextIcon /></span>
         <textarea
             value={preProposalTopic}
             onChange={(e) => setPreProposalTopic(e.target.value)}
-            placeholder="موضوع دقیق پایان‌نامه خود را اینجا وارد کنید..."
+            placeholder="* موضوع دقیق پایان‌نامه خود را اینجا وارد کنید..."
             className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-lg min-h-[80px] resize-y"
             disabled={isLoading}
             rows={3}
         />
+      </div>
+
+       <div className="relative">
+            <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400"><UsersIcon /></span>
+            <input
+                type="text"
+                value={targetPopulation}
+                onChange={(e) => setTargetPopulation(e.target.value)}
+                placeholder="جامعه هدف (اختیاری، مثلا: دانشجویان، معلمان)"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-lg"
+                disabled={isLoading}
+            />
+             <div className="absolute inset-y-0 left-0 flex items-center pl-3">
+                <Tooltip text="گروهی که قصد دارید تحقیق خود را روی آن انجام دهید (مثال: معلمان، دانشجویان، مدیران)." />
+            </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-300">
+            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <h3 className="font-semibold mb-2 flex items-center">
+                  مقطع تحصیلی
+                  <Tooltip text="سطح آکادمیک تحقیق شما که بر عمق و نوآوری موضوع تاثیر می‌گذارد." />
+                </h3>
+                <div className="flex gap-x-4 gap-y-2 flex-wrap">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="level_pre" value="arshad" checked={academicLevel === 'arshad'} onChange={(e) => setAcademicLevel(e.target.value as AcademicLevel)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        کارشناسی ارشد
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="level_pre" value="doctora" checked={academicLevel === 'doctora'} onChange={(e) => setAcademicLevel(e.target.value as AcademicLevel)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        دکتری
+                    </label>
+                </div>
+            </div>
+            <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <h3 className="font-semibold mb-2 flex items-center">
+                  روش تحقیق
+                  <Tooltip text="رویکرد کلی شما برای جمع‌آوری و تحلیل داده‌ها (کمی: اعداد و آمار، کیفی: مصاحبه و تحلیل محتوا، ترکیبی: هر دو)." />
+                </h3>
+                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="method_pre" value="quantitative" checked={researchMethod === 'quantitative'} onChange={(e) => setResearchMethod(e.target.value as ResearchMethod)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        کمی
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="method_pre" value="qualitative" checked={researchMethod === 'qualitative'} onChange={(e) => setResearchMethod(e.target.value as ResearchMethod)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        کیفی
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="method_pre" value="mixed" checked={researchMethod === 'mixed'} onChange={(e) => setResearchMethod(e.target.value as ResearchMethod)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        ترکیبی
+                    </label>
+                </div>
+            </div>
+        </div>
     </div>
   );
 
-  const isAdvancedForm = mode === 'topic' && topicMode === 'advanced';
-  const isSingleInputForm = (mode === 'topic' && topicMode === 'simple') || mode === 'article' || mode === 'pre-proposal';
+  const isMultiInputForm = (mode === 'topic' && topicMode === 'advanced') || mode === 'pre-proposal';
+  const isSingleInputForm = (mode === 'topic' && topicMode === 'simple') || mode === 'article';
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center p-4 sm:p-6 lg:p-8">
@@ -319,7 +392,7 @@ const App: React.FC = () => {
 
 
         <div className="bg-slate-800/50 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-2xl border border-slate-700 transition-all duration-300">
-          <form onSubmit={handleSubmit} className={`flex ${isAdvancedForm ? 'flex-col' : 'flex-col sm:flex-row'} items-start gap-4`}>
+          <form onSubmit={handleSubmit} className={`flex ${isMultiInputForm ? 'flex-col' : 'flex-col sm:flex-row'} items-start gap-4`}>
             {mode === 'topic' && topicMode === 'simple' && renderSimpleTopicForm()}
             {mode === 'topic' && topicMode === 'advanced' && renderAdvancedTopicForm()}
             {mode === 'article' && renderArticleForm()}
@@ -328,7 +401,7 @@ const App: React.FC = () => {
             <button
               type="submit"
               disabled={isSubmitDisabled}
-              className={`flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg shadow-cyan-600/30 text-lg ${isAdvancedForm ? 'w-full mt-2' : ''} ${isSingleInputForm ? 'w-full sm:w-auto self-center sm:self-auto' : ''}`}
+              className={`flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg shadow-cyan-600/30 text-lg ${isMultiInputForm ? 'w-full mt-2' : ''} ${isSingleInputForm ? 'w-full sm:w-auto self-center sm:self-auto' : ''}`}
             >
               {isLoading ? (
                 <>

@@ -1,9 +1,20 @@
 import OpenAI from "openai";
-import type { PreProposalResponse } from '../types';
+import type { PreProposalResponse, PreProposalRequest, AcademicLevel, ResearchMethod } from '../types';
 
 export const config = {
   runtime: 'edge',
 };
+
+// Type definitions duplicated from types.ts to avoid pathing issues.
+type IAcademicLevel = 'arshad' | 'doctora';
+type IResearchMethod = 'quantitative' | 'qualitative' | 'mixed';
+
+interface IPreProposalRequest {
+    topic: string;
+    level: IAcademicLevel;
+    methodology: IResearchMethod;
+    targetPopulation?: string;
+}
 
 export default async function handler(request: Request) {
   if (request.method !== 'POST') {
@@ -26,7 +37,7 @@ export default async function handler(request: Request) {
   });
 
   try {
-    const { topic }: { topic: string } = await request.json();
+    const { topic, level, methodology, targetPopulation }: IPreProposalRequest = await request.json();
 
     if (!topic || typeof topic !== 'string' || topic.trim() === '') {
       return new Response(JSON.stringify({ error: 'موضوع پایان‌نامه یک مقدار الزامی است.' }), {
@@ -35,24 +46,40 @@ export default async function handler(request: Request) {
       });
     }
 
-    const prompt = `
-      You are an expert academic advisor. Based on the following thesis topic, generate a pre-proposal in Persian.
-      Thesis Topic: "${topic}"
+    const levelText = level === 'arshad' ? 'کارشناسی ارشد' : 'دکتری';
+    const methodTextMapping = {
+        quantitative: 'کمی',
+        qualitative: 'کیفی',
+        mixed: 'ترکیبی'
+    };
+    const methodText = methodTextMapping[methodology];
 
-      Follow these instructions precisely:
+
+    const prompt = `
+      You are an expert academic advisor. Based on the following thesis details, generate a comprehensive pre-proposal in Persian.
+
+      ## Thesis Details:
+      - Topic: "${topic}"
+      - Academic Level: "${levelText}"
+      - Desired Research Method: "${methodText}"
+      ${targetPopulation ? `- Target Population: "${targetPopulation}"` : ''}
+
+      ## Instructions:
+      Follow these instructions precisely to generate the content. Your entire output must be a single, valid JSON object.
+
       1.  **Introduction (introduction):** Write a 250-word academic introduction in Persian. Do not use any subheadings. Start with general concepts, then narrow down to the specific challenges and problems related to the topic.
-      2.  **Objectives (mainObjective, specificObjectives):**
-          -   Generate one main objective (mainObjective) in Persian.
-          -   Generate four specific objectives (specificObjectives) in Persian that derive from the main objective.
-      3.  **Research Questions (mainQuestion, specificQuestions):**
-          -   Generate one main question (mainQuestion) in Persian that directly corresponds to the main objective.
-          -   Generate four specific questions (specificQuestions) in Persian that directly correspond to the four specific objectives. The mapping must be exact.
-      4.  **Methodology (methodology):** Based on the research questions, describe the following in Persian:
-          -   researchTypeAndDesign: The type and design of the research.
-          -   populationAndSample: The target population and sampling method.
-          -   dataCollectionTools: The tools for data collection (e.g., questionnaires, interviews).
-          -   dataAnalysisMethod: The methods for data analysis (e.g., SPSS, regression, thematic analysis).
-          -   potentialSoftware: Potential software to be used.
+
+      2.  **Objectives & Questions:**
+          -   Generate one main objective (mainObjective) and four specific objectives (specificObjectives).
+          -   Generate one main question (mainQuestion) and four specific questions (specificQuestions) that directly correspond to the objectives.
+          -   **Crucially, the nature of these must align with the academic level.** For a **PhD (${levelText})**, they should be more exploratory, theoretical, and aim for model development or theory extension. For a **Master's (${levelText})**, they should be more focused on applying existing theories or examining relationships between variables.
+
+      3.  **Methodology (methodology):** This section must be highly tailored to the provided details.
+          -   **researchTypeAndDesign:** Must strictly reflect the chosen "${methodText}" method. Be specific (e.g., "تحقیق حاضر از نظر هدف، کاربردی و از نظر ماهیت و روش، توصیفی-همبستگی است.").
+          -   **populationAndSample:** Must explicitly mention the target population. If "${targetPopulation}" is provided, use it. If not, suggest a relevant one for the topic. Describe a suitable sampling method (e.g., نمونه‌گیری تصادفی ساده، نمونه‌گیری هدفمند).
+          -   **dataCollectionTools:** Suggest tools appropriate for the "${methodText}" method (e.g., پرسشنامه استاندارد for quantitative, مصاحبه نیمه‌ساختاریافته for qualitative).
+          -   **dataAnalysisMethod:** Suggest analysis methods appropriate for the "${methodText}" method (e.g., رگرسیون چندمتغیره با نرم‌افزار SPSS for quantitative, تحلیل تماتیک با نرم‌افزار MAXQDA for qualitative).
+          -   **potentialSoftware:** Suggest relevant software based on the analysis method.
 
       Your output must be **only** a valid JSON object with the following structure. Do not include any text, explanations, intros, conclusions, or Markdown formatting like \`\`\`json. Only the raw JSON object.
 

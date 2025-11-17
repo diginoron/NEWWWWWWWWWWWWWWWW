@@ -40,3 +40,10 @@ export interface PreProposalResponse {
   specificQuestions: string[];
   methodology: Methodology;
 }
+
+export interface PreProposalRequest {
+    topic: string;
+    level: AcademicLevel;
+    methodology: ResearchMethod;
+    targetPopulation?: string;
+}

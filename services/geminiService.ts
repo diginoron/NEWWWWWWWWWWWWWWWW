@@ -1,4 +1,4 @@
-import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse } from '../types';
+import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse, PreProposalRequest } from '../types';
 
 export async function generateThesisSuggestions(params: ThesisSuggestionRequest): Promise<ThesisSuggestionResponse> {
   try {
@@ -76,14 +76,14 @@ export async function translateText(text: string): Promise<string> {
 }
 
 
-export async function generatePreProposal(topic: string): Promise<PreProposalResponse> {
+export async function generatePreProposal(params: PreProposalRequest): Promise<PreProposalResponse> {
   try {
     const response = await fetch('/api/pre-proposal', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ topic }),
+      body: JSON.stringify(params),
     });
 
     if (!response.ok) {
