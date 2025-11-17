@@ -26,28 +26,47 @@ export default async function handler(request: Request) {
   });
 
   try {
-    const { keywords } = await request.json();
+    const { keywords: originalKeywords } = await request.json();
 
-    if (!keywords || typeof keywords !== 'string' || keywords.trim() === '') {
+    if (!originalKeywords || typeof originalKeywords !== 'string' || originalKeywords.trim() === '') {
       return new Response(JSON.stringify({ error: 'کلیدواژه‌ها یک مقدار الزامی است.' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
-    const prompt = `
-      وظیفه شما این است که به عنوان یک API عمل کنید. 3 مقاله علمی بین‌المللی و انگلیسی زبان جدید و مرتبط از Google Scholar در مورد "${keywords}" پیدا کن. مقالات فارسی را جستجو نکن.
-      برای یافتن اطلاعات بروز از اینترنت جستجو کن.
-      برای هر مقاله، اطلاعات زیر را استخراج کن:
-      - title: عنوان کامل مقاله (به زبان انگلیسی)
-      - authors: آرایه‌ای از نام نویسندگان
-      - publicationYear: سال انتشار (فقط عدد)
-      - summary: خلاصه‌ای کوتاه (حدود 2 جمله و به زبان انگلیسی)
-      - link: لینک مستقیم به مقاله یا صفحه آن
+    // -- Step 1: Translate keywords to English --
+    const translationPrompt = `
+      Translate the following academic research keywords from Persian to English.
+      Return ONLY the comma-separated English keywords. Do not add any extra text, explanation, or labels.
+      Keywords: "${originalKeywords}"
+    `;
 
-      پاسخ شما باید **فقط و فقط** یک آرایه JSON معتبر باشد. هیچ متن، توضیح، مقدمه، نتیجه‌گیری یا قالب‌ بندی Markdown مانند \`\`\`json در پاسخ شما نباید وجود داشته باشد. فقط آرایه JSON خام.
+    const translationCompletion = await client.chat.completions.create({
+      model: "gemini-2.5-flash",
+      messages: [{ role: "user", content: translationPrompt }],
+      temperature: 0.1,
+    });
 
-      مثال فرمت خروجی:
+    const translatedKeywords = translationCompletion.choices[0].message.content?.trim();
+    if (!translatedKeywords) {
+      throw new Error("ترجمه کلیدواژه‌ها با شکست مواجه شد.");
+    }
+    
+    // -- Step 2: Search for articles using the translated keywords --
+    const articleSearchPrompt = `
+      You are an API. Your task is to find 3 recent and relevant international, English-language academic articles from Google Scholar about "${translatedKeywords}". Do not search for Persian articles.
+      Search the internet to find up-to-date information.
+      For each article, extract the following information:
+      - title: The full title of the article (in English)
+      - authors: An array of author names
+      - publicationYear: The publication year (number only)
+      - summary: A short summary (about 2 sentences and in English)
+      - link: A direct link to the article or its page
+
+      Your response must be **only** a valid JSON array. Do not include any text, explanations, intros, conclusions, or Markdown formatting like \`\`\`json. Only the raw JSON array.
+
+      Example output format:
       [
         {
           "title": "Example Title 1",
@@ -59,17 +78,18 @@ export default async function handler(request: Request) {
       ]
     `;
 
-    const completion = await client.chat.completions.create({
+    const articleCompletion = await client.chat.completions.create({
       model: "gemini-2.5-flash",
-      messages: [{ role: "user", content: prompt }],
+      messages: [{ role: "user", content: articleSearchPrompt }],
       temperature: 0.5,
     });
 
-    const jsonText = completion.choices[0].message.content;
+    const jsonText = articleCompletion.choices[0].message.content;
     if (!jsonText) {
       throw new Error("پاسخ دریافتی از API فاقد محتوای متنی است یا به دلیل خط‌مشی‌های ایمنی مسدود شده است.");
     }
     
+    // Extract JSON array from the response, as the model might add extra text
     const jsonMatch = jsonText.match(/(\[[\s\S]*\])/);
 
     if (!jsonMatch || !jsonMatch[0]) {
