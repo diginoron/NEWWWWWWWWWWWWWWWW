@@ -1,20 +1,9 @@
 import OpenAI from "openai";
-import type { PreProposalResponse, PreProposalRequest, AcademicLevel, ResearchMethod } from '../types';
+import type { PreProposalResponse, PreProposalRequest } from '../types';
 
 export const config = {
   runtime: 'edge',
 };
-
-// Type definitions duplicated from types.ts to avoid pathing issues.
-type IAcademicLevel = 'arshad' | 'doctora';
-type IResearchMethod = 'quantitative' | 'qualitative' | 'mixed';
-
-interface IPreProposalRequest {
-    topic: string;
-    level: IAcademicLevel;
-    methodology: IResearchMethod;
-    targetPopulation?: string;
-}
 
 export default async function handler(request: Request) {
   if (request.method !== 'POST') {
@@ -37,7 +26,7 @@ export default async function handler(request: Request) {
   });
 
   try {
-    const { topic, level, methodology, targetPopulation }: IPreProposalRequest = await request.json();
+    const { topic, level, methodology, targetPopulation }: PreProposalRequest = await request.json();
 
     if (!topic || typeof topic !== 'string' || topic.trim() === '') {
       return new Response(JSON.stringify({ error: 'موضوع پایان‌نامه یک مقدار الزامی است.' }), {
