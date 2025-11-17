@@ -1,8 +1,9 @@
 import React, { useState, useCallback } from 'react';
-import { generateThesisSuggestions, findRelevantArticles } from './services/geminiService';
+import { generateThesisSuggestions, findRelevantArticles, translateText } from './services/geminiService';
 import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod } from './types';
 import Header from './components/Header';
 import SuggestionCard from './components/SuggestionCard';
+import TopicSuggestionCard, { type TopicItem } from './components/TopicSuggestionCard';
 import ArticleCard from './components/ArticleCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorAlert from './components/ErrorAlert';
@@ -25,6 +26,7 @@ const App: React.FC = () => {
   
   // State for results
   const [suggestions, setSuggestions] = useState<ThesisSuggestionResponse | null>(null);
+  const [topicItems, setTopicItems] = useState<TopicItem[]>([]);
   const [articles, setArticles] = useState<Article[] | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +38,7 @@ const App: React.FC = () => {
     setAdvancedKeywords('');
     setTargetPopulation('');
     setSuggestions(null);
+    setTopicItems([]);
     setArticles(null);
     setError(null);
   };
@@ -43,6 +46,7 @@ const App: React.FC = () => {
   const handleTopicModeChange = (newTopicMode: TopicMode) => {
     setTopicMode(newTopicMode);
     setSuggestions(null);
+    setTopicItems([]);
     setError(null);
   };
 
@@ -64,23 +68,29 @@ const App: React.FC = () => {
     setIsLoading(true);
     setError(null);
     setSuggestions(null);
+    setTopicItems([]);
     setArticles(null);
 
     try {
       if (mode === 'topic') {
+        let result: ThesisSuggestionResponse;
         if (topicMode === 'simple') {
-          const result = await generateThesisSuggestions({ fieldOfStudy });
-          setSuggestions(result);
+          result = await generateThesisSuggestions({ fieldOfStudy });
         } else { // advanced mode
-          const result = await generateThesisSuggestions({ 
+          result = await generateThesisSuggestions({ 
             fieldOfStudy, 
             keywords: advancedKeywords, 
             level: academicLevel, 
             methodology: researchMethod,
             targetPopulation: targetPopulation
           });
-          setSuggestions(result);
         }
+        setSuggestions(result);
+        setTopicItems(result.topics.map(topic => ({
+          persian: topic,
+          isTranslating: false,
+          isCopied: false,
+        })));
       } else { // article mode
         const result = await findRelevantArticles(articleKeywords);
         setArticles(result);
@@ -95,6 +105,47 @@ const App: React.FC = () => {
       setIsLoading(false);
     }
   }, [isLoading, mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, academicLevel, researchMethod, targetPopulation]);
+  
+  const handleCopyTopic = useCallback((index: number) => {
+    const topicText = topicItems[index]?.persian;
+    if (!topicText) return;
+
+    navigator.clipboard.writeText(topicText).then(() => {
+      setTopicItems(prevItems => prevItems.map((item, i) => 
+        i === index ? { ...item, isCopied: true } : item
+      ));
+      setTimeout(() => {
+         setTopicItems(prevItems => prevItems.map((item, i) => 
+            i === index ? { ...item, isCopied: false } : item
+        ));
+      }, 2000);
+    }).catch(err => {
+        console.error("Failed to copy text: ", err);
+        setError("خطا در کپی کردن متن.");
+    });
+  }, [topicItems]);
+  
+  const handleTranslateTopic = useCallback(async (index: number) => {
+    const topicText = topicItems[index]?.persian;
+    if (!topicText) return;
+    
+    setTopicItems(prevItems => prevItems.map((item, i) => 
+        i === index ? { ...item, isTranslating: true } : item
+    ));
+
+    try {
+      const translation = await translateText(topicText);
+      setTopicItems(prevItems => prevItems.map((item, i) => 
+        i === index ? { ...item, english: translation, isTranslating: false } : item
+      ));
+    } catch (err) {
+      console.error("Translation failed:", err);
+      setError(err instanceof Error ? err.message : "ترجمه با شکست مواجه شد.");
+      setTopicItems(prevItems => prevItems.map((item, i) => 
+        i === index ? { ...item, isTranslating: false } : item
+      ));
+    }
+  }, [topicItems]);
   
   const isSubmitDisabled = isLoading || (mode === 'topic' && !fieldOfStudy.trim()) || (mode === 'article' && !articleKeywords.trim());
 
@@ -262,7 +313,12 @@ const App: React.FC = () => {
           {suggestions && mode === 'topic' && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
               <SuggestionCard title="کلیدواژه‌های پیشنهادی" items={suggestions.keywords} />
-              <SuggestionCard title="موضوعات پیشنهادی برای پایان‌نامه" items={suggestions.topics} />
+              <TopicSuggestionCard 
+                title="موضوعات پیشنهادی برای پایان‌نامه"
+                topics={topicItems}
+                onCopy={handleCopyTopic}
+                onTranslate={handleTranslateTopic}
+              />
             </div>
           )}
           {articles && mode === 'article' && (
