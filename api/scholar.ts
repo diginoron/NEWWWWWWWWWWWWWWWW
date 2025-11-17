@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 import type { ArticleResponse } from '../types';
 
 export const config = {
@@ -13,14 +13,17 @@ export default async function handler(request: Request) {
     });
   }
 
-  if (!process.env.API_KEY) {
+  if (!process.env.AVALAI_API_KEY) {
     return new Response(JSON.stringify({ error: 'خطای پیکربندی سرور: کلید API یافت نشد.' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
   
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const client = new OpenAI({
+    apiKey: process.env.AVALAI_API_KEY,
+    baseURL: "https://api.avalai.ir/v1",
+  });
 
   try {
     const { keywords } = await request.json();
@@ -34,7 +37,7 @@ export default async function handler(request: Request) {
 
     const prompt = `
       وظیفه شما این است که به عنوان یک API عمل کنید. 3 مقاله علمی جدید و مرتبط از Google Scholar در مورد "${keywords}" پیدا کن.
-      از ابزار جستجوی گوگل برای یافتن اطلاعات بروز استفاده کن.
+      برای یافتن اطلاعات بروز از اینترنت جستجو کن.
       برای هر مقاله، اطلاعات زیر را استخراج کن:
       - title: عنوان کامل مقاله
       - authors: آرایه‌ای از نام نویسندگان
@@ -56,22 +59,17 @@ export default async function handler(request: Request) {
       ]
     `;
 
-    const response = await ai.models.generateContent({
+    const completion = await client.chat.completions.create({
       model: "gemini-2.5-flash",
-      contents: [{ parts: [{ text: prompt }] }],
-      config: {
-        tools: [{ googleSearch: {} }],
-        temperature: 0.5,
-      },
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.5,
     });
 
-    const jsonText = response.text;
+    const jsonText = completion.choices[0].message.content;
     if (!jsonText) {
       throw new Error("پاسخ دریافتی از API فاقد محتوای متنی است یا به دلیل خط‌مشی‌های ایمنی مسدود شده است.");
     }
     
-    // Use a regular expression to find the JSON array within the response text.
-    // This is more robust against extra text or markdown code fences.
     const jsonMatch = jsonText.match(/(\[[\s\S]*\])/);
 
     if (!jsonMatch || !jsonMatch[0]) {
@@ -96,27 +94,11 @@ export default async function handler(request: Request) {
     let errorMessage = "یک خطای ناشناخته در سرور رخ داد.";
     let statusCode = 500;
 
-    if (error instanceof Error) {
-        // The Gemini SDK can throw an error where the message is a JSON string from the API.
-        if (error.message.includes('"code"') && error.message.includes('"message"')) {
-             try {
-                const apiErrorBody = JSON.parse(error.message);
-                const apiError = apiErrorBody.error;
-
-                if (apiError.code === 503 || apiError.status === 'UNAVAILABLE') {
-                    errorMessage = "سرویس هوش مصنوعی در حال حاضر با ترافیک بالایی مواجه است. لطفاً چند لحظه بعد دوباره تلاش کنید.";
-                    statusCode = 503;
-                } else {
-                    errorMessage = `سرویس هوش مصنوعی با خطا مواجه شد: ${apiError.message}`;
-                    statusCode = typeof apiError.code === 'number' ? apiError.code : 500;
-                }
-             } catch(e) {
-                 // Fallback if parsing fails for some reason
-                 errorMessage = `فراخوانی API با شکست مواجه شد: ${error.message}`;
-             }
-        } else {
-            errorMessage = `فراخوانی API با شکست مواجه شد: ${error.message}`;
-        }
+    if (error instanceof OpenAI.APIError) {
+        errorMessage = `فراخوانی API با شکست مواجه شد: ${error.message}`;
+        statusCode = error.status || 500;
+    } else if (error instanceof Error) {
+        errorMessage = `خطا در پردازش: ${error.message}`;
     }
 
     return new Response(JSON.stringify({ error: errorMessage }), {

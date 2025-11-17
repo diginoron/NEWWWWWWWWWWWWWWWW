@@ -1,34 +1,13 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import OpenAI from "openai";
+import type { ThesisSuggestionResponse } from '../types';
 
 export const config = {
   runtime: 'edge',
 };
 
-// Type definition is duplicated here to avoid pathing issues in Vercel build.
-interface ThesisSuggestionResponse {
-  keywords: string[];
-  topics: string[];
-}
+// Type definitions duplicated from types.ts to avoid pathing issues.
 type AcademicLevel = 'arshad' | 'doctora';
 type ResearchMethod = 'quantitative' | 'qualitative' | 'mixed';
-
-
-const responseSchema = {
-  type: Type.OBJECT,
-  properties: {
-    keywords: {
-      type: Type.ARRAY,
-      description: "فهرستی از 5 تا 10 کلیدواژه اصلی و تخصصی مرتبط با رشته تحصیلی.",
-      items: { type: Type.STRING },
-    },
-    topics: {
-      type: Type.ARRAY,
-      description: "فهرستی از 3 تا 5 موضوع جدید، خلاقانه و قابل تحقیق برای پایان‌نامه در آن رشته.",
-      items: { type: Type.STRING },
-    },
-  },
-  required: ["keywords", "topics"],
-};
 
 export default async function handler(request: Request) {
   if (request.method !== 'POST') {
@@ -38,14 +17,17 @@ export default async function handler(request: Request) {
     });
   }
 
-  if (!process.env.API_KEY) {
+  if (!process.env.AVALAI_API_KEY) {
     return new Response(JSON.stringify({ error: 'خطای پیکربندی سرور: کلید API یافت نشد.' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
   
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const client = new OpenAI({
+    apiKey: process.env.AVALAI_API_KEY,
+    baseURL: "https://api.avalai.ir/v1",
+  });
 
   try {
     const { 
@@ -103,27 +85,23 @@ export default async function handler(request: Request) {
       `;
     }
 
-    prompt += "\n\nخروجی باید دقیقاً با فرمت JSON و اسکیمای ارائه شده مطابقت داشته باشد. هیچ متن اضافی یا توضیحی خارج از ساختار JSON ارائه نده.";
+    prompt += "\n\nخروجی باید دقیقاً یک آبجکت JSON معتبر باشد که شامل کلیدهای 'keywords' و 'topics' است. هیچ متن اضافی یا توضیحی خارج از ساختار JSON ارائه نده.";
 
-    const response = await ai.models.generateContent({
+    const completion = await client.chat.completions.create({
       model: "gemini-2.5-flash",
-      contents: [{ parts: [{ text: prompt }] }],
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: responseSchema,
-        temperature: 0.8,
-        topP: 0.95,
-      },
+      messages: [{ role: "user", content: prompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.8,
+      top_p: 0.95,
     });
 
-    const jsonText = response.text;
+    const jsonText = completion.choices[0].message.content;
     if (!jsonText) {
       throw new Error("پاسخ دریافتی از API فاقد محتوای متنی است یا به دلیل خط‌مشی‌های ایمنی مسدود شده است.");
     }
 
     const parsedResponse = JSON.parse(jsonText.trim());
 
-    // Basic validation of the parsed response structure
     if (
       !parsedResponse ||
       !Array.isArray(parsedResponse.keywords) ||
@@ -143,27 +121,11 @@ export default async function handler(request: Request) {
     let errorMessage = "یک خطای ناشناخته در سرور رخ داد.";
     let statusCode = 500;
 
-    if (error instanceof Error) {
-        // The Gemini SDK can throw an error where the message is a JSON string from the API.
-        if (error.message.includes('"code"') && error.message.includes('"message"')) {
-             try {
-                const apiErrorBody = JSON.parse(error.message);
-                const apiError = apiErrorBody.error;
-
-                if (apiError.code === 503 || apiError.status === 'UNAVAILABLE') {
-                    errorMessage = "سرویس هوش مصنوعی در حال حاضر با ترافیک بالایی مواجه است. لطفاً چند لحظه بعد دوباره تلاش کنید.";
-                    statusCode = 503;
-                } else {
-                    errorMessage = `سرویس هوش مصنوعی با خطا مواجه شد: ${apiError.message}`;
-                    statusCode = typeof apiError.code === 'number' ? apiError.code : 500;
-                }
-             } catch(e) {
-                 // Fallback if parsing fails for some reason
-                 errorMessage = `فراخوانی API با شکست مواجه شد: ${error.message}`;
-             }
-        } else {
-            errorMessage = `فراخوانی API با شکست مواجه شد: ${error.message}`;
-        }
+    if (error instanceof OpenAI.APIError) {
+        errorMessage = `فراخوانی API با شکست مواجه شد: ${error.message}`;
+        statusCode = error.status || 500;
+    } else if (error instanceof Error) {
+        errorMessage = `خطا در پردازش: ${error.message}`;
     }
 
     return new Response(JSON.stringify({ error: errorMessage }), {
