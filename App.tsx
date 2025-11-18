@@ -11,6 +11,13 @@ import LoadingSpinner from './components/LoadingSpinner';
 import ErrorAlert from './components/ErrorAlert';
 import { BookOpenIcon, ChevronLeftIcon, FileTextIcon, SearchIcon, UsersIcon, HelpCircleIcon, UploadCloudIcon } from './components/Icons';
 
+declare global {
+  interface Window {
+    pdfjsLib: any;
+    mammoth: any;
+  }
+}
+
 type AppMode = 'topic' | 'article' | 'pre-proposal' | 'summarize';
 type TopicMode = 'simple' | 'advanced';
 
@@ -24,7 +31,6 @@ const Tooltip: React.FC<{ text: string }> = ({ text }) => (
     </div>
   </div>
 );
-
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>('topic');
@@ -75,13 +81,47 @@ const App: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
-        if (file.type !== 'text/plain') {
-            setError("فرمت فایل نامعتبر است. لطفاً یک فایل با فرمت .txt آپلود کنید.");
+        const allowedTypes = [
+            'application/pdf', 
+            'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+            'text/plain'
+        ];
+        if (!allowedTypes.includes(file.type)) {
+            setError("فرمت فایل نامعتبر است. لطفاً یک فایل PDF، DOCX یا TXT آپلود کنید.");
             setUploadedFile(null);
             return;
         }
         setUploadedFile(file);
         setError(null);
+    }
+  };
+
+  const extractTextFromFile = async (file: File): Promise<string> => {
+    if (file.type === 'application/pdf') {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.6.347/pdf.worker.min.js`;
+        const arrayBuffer = await file.arrayBuffer();
+        const pdf = await window.pdfjsLib.getDocument(arrayBuffer).promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const textContent = await page.getTextContent();
+            fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
+        }
+        if (!fullText.trim()) {
+            throw new Error('فایل PDF فاقد محتوای متنی قابل استخراج است. ممکن است شامل تصاویر اسکن شده باشد.');
+        }
+        return fullText;
+    } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
+        const arrayBuffer = await file.arrayBuffer();
+        const result = await window.mammoth.extractRawText({ arrayBuffer });
+        if (!result.value.trim()) {
+             throw new Error('فایل Word فاقد محتوای متنی قابل استخراج است.');
+        }
+        return result.value;
+    } else if (file.type === 'text/plain') {
+        return file.text();
+    } else {
+        throw new Error('فرمت فایل پشتیبانی نمی‌شود. لطفاً یک فایل PDF، DOCX یا TXT انتخاب کنید.');
     }
   };
 
@@ -148,9 +188,17 @@ const App: React.FC = () => {
         const result = await generatePreProposal(params);
         setPreProposal(result);
       } else if (mode === 'summarize' && uploadedFile) {
-        const articleContent = await uploadedFile.text();
-        const result = await summarizeArticle(articleContent);
-        setSummary(result);
+        try {
+          const articleContent = await extractTextFromFile(uploadedFile);
+          const result = await summarizeArticle(articleContent);
+          setSummary(result);
+        } catch (parseError) {
+          if (parseError instanceof Error) {
+            setError(`خطا در پردازش فایل: ${parseError.message}`);
+          } else {
+            setError('خطا در پردازش فایل.');
+          }
+        }
       }
     } catch (err) {
       if (err instanceof Error) {
@@ -324,9 +372,9 @@ const App: React.FC = () => {
             <div className="flex flex-col items-center justify-center text-slate-400">
                 <UploadCloudIcon />
                 <p className="mt-2 text-lg font-semibold text-slate-200">فایل مقاله خود را اینجا بکشید یا کلیک کنید</p>
-                <p className="text-sm">فرمت مجاز: TXT.</p>
+                <p className="text-sm">فرمت‌های مجاز: PDF, DOCX, TXT</p>
             </div>
-            <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".txt" disabled={isLoading} />
+            <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".txt,.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" disabled={isLoading} />
         </label>
         {uploadedFile && (
             <div className="mt-4 text-center bg-slate-700/50 py-2 px-4 rounded-lg text-slate-300">
