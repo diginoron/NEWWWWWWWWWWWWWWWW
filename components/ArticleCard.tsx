@@ -18,6 +18,7 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ articles }) => {
   return (
     <div className="bg-slate-800/60 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-slate-700">
       <h2 className="text-2xl font-semibold text-cyan-400 mb-6">مقالات پیشنهادی</h2>
+      <p className="text-sm text-slate-400 -mt-4 mb-6">توجه: لینک مقالات توسط هوش مصنوعی تولید شده و ممکن است همیشه دقیق نباشد.</p>
       <div className="space-y-6">
         {articles.map((article, index) => (
           <div 
@@ -35,7 +36,7 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ articles }) => {
                 {article.title}
               </a>
             </h3>
-            <div className="text-sm text-slate-400 mt-2 flex items-center gap-4">
+            <div className="text-sm text-slate-400 mt-2 flex items-center gap-4 flex-wrap">
               <span>{article.publicationYear}</span>
               <span className="text-slate-600">|</span>
               <span>{article.authors.join(', ')}</span>

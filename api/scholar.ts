@@ -13,7 +13,6 @@ export default async function handler(request: Request) {
     });
   }
 
-  // Use AVALAI_API_KEY, same as chat.ts and pre-proposal.ts
   if (!process.env.AVALAI_API_KEY) {
     return new Response(JSON.stringify({ error: 'خطای پیکربندی سرور: کلید API یافت نشد.' }), {
       status: 500,
@@ -37,28 +36,34 @@ export default async function handler(request: Request) {
     }
 
     const prompt = `
-      You are an expert academic research assistant with the ability to find real academic papers from sources like Google Scholar.
-      Your task is to find 3 recent (published in the last 4 years), highly relevant, and REAL English-language academic articles for the following Persian keywords: "${originalKeywords}".
+      You are an academic research assistant. Your task is to find 3 relevant English-language academic articles based on the Persian keywords: "${originalKeywords}".
 
-      Follow these steps with precision:
-      1.  First, internally translate the Persian keywords into effective English search terms.
-      2.  Then, find real articles from reputable academic sources.
-      3.  For each article you find, extract the following information accurately:
-          - title: The full and correct title.
-          - authors: An array of the primary authors' names.
-          - publicationYear: The publication year as a number.
-          - summary: A concise one or two-sentence summary of the article's abstract.
-          - link: The direct, verifiable, and working URL to the article's page (e.g., on Google Scholar, IEEE Xplore, ScienceDirect). **This is crucial. Do not fabricate links.**
+      ## Instructions
+      1.  **Analyze Keywords**: Understand the core concepts in the Persian keywords.
+      2.  **Find Articles**: Based on your knowledge, identify 3 real, relevant academic articles published in the last 4 years.
+      3.  **Format Output**: Structure the result as a JSON object.
 
-      Your output must be **only** a valid JSON object with a single key "articles", which is an array of the 3 article objects.
-      Do not include any text, explanations, or markdown formatting outside of the JSON object itself.
+      ## Output Requirements
+      - The entire output MUST be a single, valid JSON object.
+      - The JSON object must have a single root key: "articles".
+      - The value of "articles" must be an array of 3 article objects.
+      - Each article object must have the following keys:
+          - \`title\` (string): The full article title.
+          - \`authors\` (array of strings): List of main authors.
+          - \`publicationYear\` (number): The year of publication.
+          - \`summary\` (string): A brief, one-sentence summary.
+          - \`link\` (string): A plausible URL to the article, preferably a Google Scholar link. It's okay if you have to construct the link, but it should be realistic.
+
+      Example of a valid link: "https://scholar.google.com/scholar?q=..."
+
+      Do not include any text, explanations, or markdown formatting outside of the main JSON object.
     `;
 
     const completion = await client.chat.completions.create({
       model: "gemini-2.5-flash",
       messages: [{ role: "user", content: prompt }],
       response_format: { type: "json_object" },
-      temperature: 0.5, // Lower temperature for more factual results
+      temperature: 0.5,
     });
 
     const jsonText = completion.choices[0].message.content;
@@ -72,7 +77,6 @@ export default async function handler(request: Request) {
       throw new Error(`ساختار JSON دریافت شده از API نامعتبر است. پاسخ دریافت شده: ${jsonText}`);
     }
     
-    // The prompt asks for { articles: [...] }, but the client-side expects an array directly.
     return new Response(JSON.stringify(parsedResponse.articles as ArticleResponse), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
