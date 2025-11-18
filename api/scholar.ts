@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { GoogleGenAI } from '@google/genai';
 import type { ArticleResponse } from '../types';
 
 export const config = {
@@ -13,17 +13,15 @@ export default async function handler(request: Request) {
     });
   }
 
-  if (!process.env.AVALAI_API_KEY) {
-    return new Response(JSON.stringify({ error: 'خطای پیکربندی سرور: کلید API یافت نشد.' }), {
+  if (!process.env.API_KEY) {
+    return new Response(JSON.stringify({ error: 'خطای پیکربندی سرور: کلید API گوگل یافت نشد. لطفاً متغیر محیطی API_KEY را تنظیم کنید.' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
-  
-  const client = new OpenAI({
-    apiKey: process.env.AVALAI_API_KEY,
-    baseURL: "https://api.avalai.ir/v1",
-  });
+
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const model = 'gemini-2.5-flash';
 
   try {
     const { keywords: originalKeywords } = await request.json();
@@ -35,66 +33,57 @@ export default async function handler(request: Request) {
       });
     }
 
-    // -- Step 1: Translate keywords to English --
+    // -- Step 1: Translate keywords to English for better search results --
     const translationPrompt = `
       Translate the following academic research keywords from Persian to English.
       Return ONLY the comma-separated English keywords. Do not add any extra text, explanation, or labels.
       Keywords: "${originalKeywords}"
     `;
-
-    const translationCompletion = await client.chat.completions.create({
-        model: "gemini-2.5-flash",
-        messages: [{ role: "user", content: translationPrompt }],
-        temperature: 0.1,
+    
+    const translationResult = await ai.models.generateContent({
+        model: model,
+        contents: translationPrompt
     });
 
-    const translatedKeywords = translationCompletion.choices[0].message.content?.trim();
+    const translatedKeywords = translationResult.text?.trim();
     if (!translatedKeywords) {
       throw new Error("ترجمه کلیدواژه‌ها با شکست مواجه شد.");
     }
     
-    // -- Step 2: Search for articles using the translated keywords --
+    // -- Step 2: Search for articles using Google Search grounding --
     const articleSearchPrompt = `
-      You are an expert academic research assistant acting as an API.
-      Your task is to find 3 recent (published in the last 3 years) and highly relevant international, English-language academic articles about "${translatedKeywords}".
-      
-      Instructions:
-      1.  Search for real articles from reputable sources like Google Scholar, IEEE Xplore, ACM Digital Library, PubMed, etc.
-      2.  For each article, extract the following information:
-          - title: The full title of the article (in English).
-          - authors: An array of author names.
-          - publicationYear: The publication year as a number.
-          - summary: A short, concise summary in English (about 2 sentences).
-          - link: A direct, valid, and working URL to the article's abstract page. Verify the link is accessible.
-      3.  Your final output must be **only** a valid JSON object with a single key "articles" which contains an array of the article objects. Do not include any text, explanations, intros, conclusions, or Markdown formatting like \`\`\`json. Your entire response should be the raw JSON object.
+      You are an expert academic research assistant.
+      Based on the provided Google Search results for the query "${translatedKeywords}", identify 3 recent (published in the last 3 years), relevant, English-language academic articles.
 
-      Example output format:
-      {
-        "articles": [
-          {
-            "title": "Example Title 1",
-            "authors": ["Author A", "Author B"],
-            "publicationYear": 2024,
-            "summary": "This is a summary of the first article.",
-            "link": "https://example.com/article1"
-          }
-        ]
-      }
+      For each article, extract the following information *only from the search results*:
+      - title: The full title of the article.
+      - authors: An array of author names. If not available, use an empty array.
+      - publicationYear: The publication year as a number.
+      - summary: A short, concise summary (about 2 sentences). If not available, generate one based on the title and available metadata.
+      - link: A direct, valid, and working URL to the article's page.
+
+      Your final output must be **only** a valid JSON object with a single key "articles", which contains an array of the 3 article objects.
+      Do not include any text, explanations, intros, conclusions, or Markdown formatting outside of the JSON object itself.
+      Ensure the links are real and extracted from the search results.
     `;
 
-    const articleCompletion = await client.chat.completions.create({
-      model: "gemini-2.5-flash",
-      messages: [{ role: "user", content: articleSearchPrompt }],
-      response_format: { type: "json_object" },
-      temperature: 0.5,
+    const searchResult = await ai.models.generateContent({
+      model: model,
+      contents: articleSearchPrompt,
+      config: {
+        tools: [{googleSearch: {}}],
+      },
     });
 
-    const jsonText = articleCompletion.choices[0].message.content;
+    const jsonText = searchResult.text;
     if (!jsonText) {
       throw new Error("پاسخ دریافتی از API فاقد محتوای متنی است یا به دلیل خط‌مشی‌های ایمنی مسدود شده است.");
     }
+
+    // Sanitize the response: Gemini might wrap it in markdown and newlines
+    const sanitizedJsonText = jsonText.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
     
-    const parsedResponse = JSON.parse(jsonText.trim());
+    const parsedResponse = JSON.parse(sanitizedJsonText);
 
     if (!parsedResponse || !Array.isArray(parsedResponse.articles)) {
         throw new Error(`ساختار JSON دریافت شده از API نامعتبر است. پاسخ دریافت شده: ${jsonText}`);
@@ -111,10 +100,7 @@ export default async function handler(request: Request) {
     let errorMessage = "یک خطای ناشناخته در سرور رخ داد.";
     let statusCode = 500;
     
-    if (error instanceof OpenAI.APIError) {
-        errorMessage = `فراخوانی API با شکست مواجه شد: ${error.message}`;
-        statusCode = error.status || 500;
-    } else if (error instanceof Error) {
+    if (error instanceof Error) {
         errorMessage = `خطا در پردازش: ${error.message}`;
     }
 
