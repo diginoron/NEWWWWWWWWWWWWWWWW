@@ -46,6 +46,19 @@ const SummarizeCard: React.FC<SummarizeCardProps> = ({ data }) => {
         <p>{results}</p>
       </Section>
       
+      <div className="text-center pt-6 mt-6 border-t border-slate-700">
+        <p className="text-slate-300 mb-4">
+          برای دریافت خدمات مشاوره ای تخصصی برای انجام پایان نامه با مشاوران کاسپین تز در ارتباط با شید:
+        </p>
+        <a
+          href="https://caspianthesis.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg shadow-teal-600/40 text-lg"
+        >
+          دریافت مشاوره تخصصی
+        </a>
+      </div>
     </div>
   );
 };

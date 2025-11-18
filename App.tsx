@@ -81,6 +81,14 @@ const App: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
+        const MAX_FILE_SIZE = 2 * 1024 * 1024; // 2 MB
+
+        if (file.size > MAX_FILE_SIZE) {
+            setError("حجم فایل نباید بیشتر از 2 مگابایت باشد.");
+            setUploadedFile(null);
+            return;
+        }
+        
         const allowedTypes = [
             'application/pdf', 
             'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
@@ -372,7 +380,7 @@ const App: React.FC = () => {
             <div className="flex flex-col items-center justify-center text-slate-400">
                 <UploadCloudIcon />
                 <p className="mt-2 text-lg font-semibold text-slate-200">فایل مقاله خود را اینجا بکشید یا کلیک کنید</p>
-                <p className="text-sm">فرمت‌های مجاز: PDF, DOCX, TXT</p>
+                <p className="text-sm">فرمت‌های مجاز: PDF, DOCX, TXT (حداکثر حجم: 2 مگابایت)</p>
             </div>
             <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".txt,.pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" disabled={isLoading} />
         </label>
@@ -522,15 +530,30 @@ const App: React.FC = () => {
           {error && <ErrorAlert message={error} />}
           
           {suggestions && mode === 'topic' && (
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-              <SuggestionCard title="کلیدواژه‌های پیشنهادی" items={suggestions.keywords} />
-              <TopicSuggestionCard 
-                title="موضوعات پیشنهادی برای پایان‌نامه"
-                topics={topicItems}
-                onCopy={handleCopyTopic}
-                onTranslate={handleTranslateTopic}
-              />
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                <SuggestionCard title="کلیدواژه‌های پیشنهادی" items={suggestions.keywords} />
+                <TopicSuggestionCard 
+                  title="موضوعات پیشنهادی برای پایان‌نامه"
+                  topics={topicItems}
+                  onCopy={handleCopyTopic}
+                  onTranslate={handleTranslateTopic}
+                />
+              </div>
+              <div className="mt-8 text-center bg-slate-800/60 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-slate-700 animate-fade-in">
+                <p className="text-slate-300 mb-4 text-lg">
+                  برای مشاوره و نگارش پروپوزال و پایان نامه بر اساس موضوعات انتخابی از خدمات تخصصی کاسپین تز استفاده کنید:
+                </p>
+                <a
+                  href="https://caspianthesis.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg shadow-teal-600/40 text-lg"
+                >
+                  دریافت مشاوره تخصصی
+                </a>
+              </div>
+            </>
           )}
 
           {articles && mode === 'article' && (
