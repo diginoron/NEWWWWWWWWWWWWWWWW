@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal, summarizeArticle } from './services/geminiService';
 import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, PreProposalRequest, SummaryResponse } from './types';
 import Header from './components/Header';
@@ -10,6 +10,7 @@ import SummarizeCard from './components/SummarizeCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorAlert from './components/ErrorAlert';
 import { BookOpenIcon, ChevronLeftIcon, FileTextIcon, SearchIcon, UsersIcon, HelpCircleIcon, UploadCloudIcon } from './components/Icons';
+import TokenEstimator from './components/TokenEstimator';
 
 declare global {
   interface Window {
@@ -54,6 +55,86 @@ const App: React.FC = () => {
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [tokenEstimate, setTokenEstimate] = useState({ input: 0, output: 0, total: 0 });
+
+  // Token estimation logic
+  useEffect(() => {
+    const estimateTokens = (text: string): number => Math.ceil(text.length / 3);
+
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let basePromptTokens = 0;
+    let userText = '';
+
+    const PROMPT_SIZES = {
+        topicSimple: 200, topicAdvanced: 330, article: 270,
+        preProposal: 670, summarize: 330,
+    };
+    const OUTPUT_SIZES = {
+        topicSimple: 150, topicAdvanced: 300, article: 450,
+        preProposal: 800, summarize: 700,
+    };
+
+    switch (mode) {
+        case 'topic':
+            if (topicMode === 'simple') {
+                basePromptTokens = PROMPT_SIZES.topicSimple;
+                outputTokens = OUTPUT_SIZES.topicSimple;
+                userText = fieldOfStudy;
+            } else {
+                basePromptTokens = PROMPT_SIZES.topicAdvanced;
+                outputTokens = OUTPUT_SIZES.topicAdvanced;
+                userText = `${fieldOfStudy} ${advancedKeywords} ${targetPopulation}`;
+            }
+            break;
+        case 'article':
+            basePromptTokens = PROMPT_SIZES.article;
+            outputTokens = OUTPUT_SIZES.article;
+            userText = articleKeywords;
+            break;
+        case 'pre-proposal':
+            basePromptTokens = PROMPT_SIZES.preProposal;
+            outputTokens = OUTPUT_SIZES.preProposal;
+            userText = `${preProposalTopic} ${targetPopulation}`;
+            break;
+        case 'summarize':
+            basePromptTokens = PROMPT_SIZES.summarize;
+            outputTokens = OUTPUT_SIZES.summarize;
+            if (uploadedFile) {
+                const fileContentTokens = Math.ceil(uploadedFile.size / 3);
+                inputTokens = basePromptTokens + fileContentTokens;
+            } else {
+                inputTokens = basePromptTokens;
+            }
+            break;
+    }
+
+    if (mode !== 'summarize') {
+       inputTokens = basePromptTokens + estimateTokens(userText);
+    }
+    
+    const hasInput = (mode === 'topic' && fieldOfStudy.trim() !== '') ||
+                     (mode === 'article' && articleKeywords.trim() !== '') ||
+                     (mode === 'pre-proposal' && preProposalTopic.trim() !== '') ||
+                     (mode === 'summarize' && uploadedFile !== null);
+
+    if (!hasInput) {
+        setTokenEstimate({ input: 0, output: 0, total: 0 });
+        return;
+    }
+    
+    const roundToNearest = (num: number, nearest: number) => Math.max(nearest, Math.ceil(num / nearest) * nearest);
+    
+    const finalInput = roundToNearest(inputTokens, 50);
+    const finalOutput = roundToNearest(outputTokens, 50);
+
+    setTokenEstimate({
+        input: finalInput,
+        output: finalOutput,
+        total: finalInput + finalOutput,
+    });
+
+  }, [mode, topicMode, fieldOfStudy, advancedKeywords, targetPopulation, articleKeywords, preProposalTopic, uploadedFile]);
 
   const handleModeChange = (newMode: AppMode) => {
     setMode(newMode);
@@ -524,6 +605,12 @@ const App: React.FC = () => {
               )}
             </button>
           </form>
+          <TokenEstimator 
+            input={tokenEstimate.input} 
+            output={tokenEstimate.output}
+            total={tokenEstimate.total}
+            note={mode === 'summarize' && uploadedFile ? 'هزینه ورودی بر اساس حجم فایل تخمین زده شده و ممکن است دقیق نباشد.' : undefined}
+          />
         </div>
 
         <div className="mt-8">
