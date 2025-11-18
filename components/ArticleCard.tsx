@@ -18,7 +18,7 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ articles }) => {
   return (
     <div className="bg-slate-800/60 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-slate-700">
       <h2 className="text-2xl font-semibold text-cyan-400 mb-6">مقالات پیشنهادی</h2>
-      <p className="text-sm text-slate-400 -mt-4 mb-6">توجه: لینک مقالات توسط هوش مصنوعی تولید شده و ممکن است همیشه دقیق نباشد.</p>
+      <p className="text-sm text-slate-400 -mt-4 mb-6">برای دریافت مقالات علمی و مشابه روی عنوان مقالات کلیک کنید.</p>
       <div className="space-y-6">
         {articles.map((article, index) => (
           <div 
@@ -46,6 +46,19 @@ const ArticleCard: React.FC<ArticleCardProps> = ({ articles }) => {
             </p>
           </div>
         ))}
+      </div>
+      <div className="text-center pt-6 mt-6 border-t border-slate-700">
+        <p className="text-slate-300 mb-4">
+          برای دریافت موضوعات تخصصی و علمی و قابل اجرا از مشاوران کاسپین تز بهره مند شوید.
+        </p>
+        <a
+          href="https://caspianthesis.com/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg shadow-teal-600/40 text-lg"
+        >
+          دریافت مشاوره تخصصی
+        </a>
       </div>
     </div>
   );

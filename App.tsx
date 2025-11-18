@@ -1,16 +1,17 @@
 import React, { useState, useCallback } from 'react';
-import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal } from './services/geminiService';
-import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, PreProposalRequest } from './types';
+import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal, summarizeArticle } from './services/geminiService';
+import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, PreProposalRequest, SummaryResponse } from './types';
 import Header from './components/Header';
 import SuggestionCard from './components/SuggestionCard';
 import TopicSuggestionCard, { type TopicItem } from './components/TopicSuggestionCard';
 import ArticleCard from './components/ArticleCard';
 import PreProposalCard from './components/PreProposalCard';
+import SummarizeCard from './components/SummarizeCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorAlert from './components/ErrorAlert';
-import { BookOpenIcon, ChevronLeftIcon, FileTextIcon, SearchIcon, UsersIcon, HelpCircleIcon } from './components/Icons';
+import { BookOpenIcon, ChevronLeftIcon, FileTextIcon, SearchIcon, UsersIcon, HelpCircleIcon, UploadCloudIcon } from './components/Icons';
 
-type AppMode = 'topic' | 'article' | 'pre-proposal';
+type AppMode = 'topic' | 'article' | 'pre-proposal' | 'summarize';
 type TopicMode = 'simple' | 'advanced';
 
 const Tooltip: React.FC<{ text: string }> = ({ text }) => (
@@ -37,12 +38,14 @@ const App: React.FC = () => {
   const [academicLevel, setAcademicLevel] = useState<AcademicLevel>('arshad');
   const [researchMethod, setResearchMethod] = useState<ResearchMethod>('quantitative');
   const [preProposalTopic, setPreProposalTopic] = useState('');
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   
   // State for results
   const [suggestions, setSuggestions] = useState<ThesisSuggestionResponse | null>(null);
   const [topicItems, setTopicItems] = useState<TopicItem[]>([]);
   const [articles, setArticles] = useState<Article[] | null>(null);
   const [preProposal, setPreProposal] = useState<PreProposalResponse | null>(null);
+  const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,10 +56,12 @@ const App: React.FC = () => {
     setAdvancedKeywords('');
     setTargetPopulation('');
     setPreProposalTopic('');
+    setUploadedFile(null);
     setSuggestions(null);
     setTopicItems([]);
     setArticles(null);
     setPreProposal(null);
+    setSummary(null);
     setError(null);
   };
   
@@ -65,6 +70,19 @@ const App: React.FC = () => {
     setSuggestions(null);
     setTopicItems([]);
     setError(null);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+        const file = e.target.files[0];
+        if (file.type !== 'text/plain') {
+            setError("فرمت فایل نامعتبر است. لطفاً یک فایل با فرمت .txt آپلود کنید.");
+            setUploadedFile(null);
+            return;
+        }
+        setUploadedFile(file);
+        setError(null);
+    }
   };
 
 
@@ -84,6 +102,10 @@ const App: React.FC = () => {
         setError("لطفاً موضوع پایان‌نامه را وارد کنید.");
         return;
     }
+     if (mode === 'summarize' && !uploadedFile) {
+        setError("لطفاً یک فایل مقاله برای خلاصه‌سازی آپلود کنید.");
+        return;
+    }
 
     setIsLoading(true);
     setError(null);
@@ -91,6 +113,7 @@ const App: React.FC = () => {
     setTopicItems([]);
     setArticles(null);
     setPreProposal(null);
+    setSummary(null);
 
     try {
       if (mode === 'topic') {
@@ -115,7 +138,7 @@ const App: React.FC = () => {
       } else if (mode === 'article') {
         const result = await findRelevantArticles(articleKeywords);
         setArticles(result);
-      } else {
+      } else if (mode === 'pre-proposal') {
         const params: PreProposalRequest = {
             topic: preProposalTopic,
             level: academicLevel,
@@ -124,6 +147,10 @@ const App: React.FC = () => {
         };
         const result = await generatePreProposal(params);
         setPreProposal(result);
+      } else if (mode === 'summarize' && uploadedFile) {
+        const articleContent = await uploadedFile.text();
+        const result = await summarizeArticle(articleContent);
+        setSummary(result);
       }
     } catch (err) {
       if (err instanceof Error) {
@@ -134,7 +161,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, academicLevel, researchMethod, targetPopulation, preProposalTopic]);
+  }, [isLoading, mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, academicLevel, researchMethod, targetPopulation, preProposalTopic, uploadedFile]);
   
   const handleCopyTopic = useCallback((index: number) => {
     const topicText = topicItems[index]?.persian;
@@ -180,13 +207,15 @@ const App: React.FC = () => {
   const isSubmitDisabled = isLoading || 
     (mode === 'topic' && !fieldOfStudy.trim()) || 
     (mode === 'article' && !articleKeywords.trim()) ||
-    (mode === 'pre-proposal' && !preProposalTopic.trim());
+    (mode === 'pre-proposal' && !preProposalTopic.trim()) ||
+    (mode === 'summarize' && !uploadedFile);
 
 
   const buttonLabels = {
     topic: "دریافت پیشنهادها",
     article: "جستجوی مقالات",
-    'pre-proposal': "ایجاد پیش پروپوزال"
+    'pre-proposal': "ایجاد پیش پروپوزال",
+    summarize: "خلاصه کن"
   };
 
   const renderSimpleTopicForm = () => (
@@ -288,6 +317,24 @@ const App: React.FC = () => {
         />
     </div>
   );
+
+  const renderSummarizeForm = () => (
+     <div className="w-full space-y-4 flex flex-col items-center">
+        <label htmlFor="file-upload" className="w-full cursor-pointer bg-slate-900 border-2 border-dashed border-slate-700 rounded-xl p-8 text-center hover:border-cyan-500 transition-colors duration-300">
+            <div className="flex flex-col items-center justify-center text-slate-400">
+                <UploadCloudIcon />
+                <p className="mt-2 text-lg font-semibold text-slate-200">فایل مقاله خود را اینجا بکشید یا کلیک کنید</p>
+                <p className="text-sm">فرمت مجاز: TXT.</p>
+            </div>
+            <input id="file-upload" name="file-upload" type="file" className="sr-only" onChange={handleFileChange} accept=".txt" disabled={isLoading} />
+        </label>
+        {uploadedFile && (
+            <div className="mt-4 text-center bg-slate-700/50 py-2 px-4 rounded-lg text-slate-300">
+                <p>فایل انتخاب شده: <span className="font-semibold text-cyan-400">{uploadedFile.name}</span></p>
+            </div>
+        )}
+     </div>
+  );
   
   const renderPreProposalForm = () => (
     <div className="w-full space-y-4">
@@ -361,6 +408,7 @@ const App: React.FC = () => {
 
   const isMultiInputForm = (mode === 'topic' && topicMode === 'advanced') || mode === 'pre-proposal';
   const isSingleInputForm = (mode === 'topic' && topicMode === 'simple') || mode === 'article';
+  const isFileUploadForm = mode === 'summarize';
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center p-4 sm:p-6 lg:p-8">
@@ -378,6 +426,9 @@ const App: React.FC = () => {
             <button onClick={() => handleModeChange('pre-proposal')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'pre-proposal' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
               پیش پروپوزال
             </button>
+            <button onClick={() => handleModeChange('summarize')} className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${mode === 'summarize' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
+              خلاصه سازی مقالات
+            </button>
           </div>
         </div>
         
@@ -392,16 +443,17 @@ const App: React.FC = () => {
 
 
         <div className="bg-slate-800/50 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-2xl border border-slate-700 transition-all duration-300">
-          <form onSubmit={handleSubmit} className={`flex ${isMultiInputForm ? 'flex-col' : 'flex-col sm:flex-row'} items-start gap-4`}>
+          <form onSubmit={handleSubmit} className={`flex ${isMultiInputForm || isFileUploadForm ? 'flex-col' : 'flex-col sm:flex-row'} items-start gap-4`}>
             {mode === 'topic' && topicMode === 'simple' && renderSimpleTopicForm()}
             {mode === 'topic' && topicMode === 'advanced' && renderAdvancedTopicForm()}
             {mode === 'article' && renderArticleForm()}
             {mode === 'pre-proposal' && renderPreProposalForm()}
+            {mode === 'summarize' && renderSummarizeForm()}
             
             <button
               type="submit"
               disabled={isSubmitDisabled}
-              className={`flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg shadow-cyan-600/30 text-lg ${isMultiInputForm ? 'w-full mt-2' : ''} ${isSingleInputForm ? 'w-full sm:w-auto self-center sm:self-auto' : ''}`}
+              className={`flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg shadow-cyan-600/30 text-lg ${isMultiInputForm || isFileUploadForm ? 'w-full mt-2' : ''} ${isSingleInputForm ? 'w-full sm:w-auto self-center sm:self-auto' : ''}`}
             >
               {isLoading ? (
                 <>
@@ -442,6 +494,12 @@ const App: React.FC = () => {
           {preProposal && mode === 'pre-proposal' && (
             <div className="animate-fade-in">
                 <PreProposalCard data={preProposal} />
+            </div>
+          )}
+
+          {summary && mode === 'summarize' && (
+            <div className="animate-fade-in">
+              <SummarizeCard data={summary} />
             </div>
           )}
         </div>

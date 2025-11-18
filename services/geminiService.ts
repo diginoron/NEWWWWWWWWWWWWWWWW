@@ -1,4 +1,4 @@
-import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse, PreProposalRequest } from '../types';
+import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse, PreProposalRequest, SummaryResponse } from '../types';
 
 export async function generateThesisSuggestions(params: ThesisSuggestionRequest): Promise<ThesisSuggestionResponse> {
   try {
@@ -95,6 +95,31 @@ export async function generatePreProposal(params: PreProposalRequest): Promise<P
     return data;
   } catch (error) {
     console.error("خطا در ایجاد پیش پروپوزال:", error);
+    throw new Error(
+      error instanceof Error ? error.message : "یک خطای ناشناخته در شبکه رخ داد."
+    );
+  }
+}
+
+export async function summarizeArticle(content: string): Promise<SummaryResponse> {
+  try {
+    const response = await fetch('/api/summarize', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ content }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'پاسخ خطا از سرور قابل خواندن نبود.' }));
+      throw new Error(errorData.error || `درخواست با کد وضعیت ${response.status} با شکست مواجه شد`);
+    }
+    
+    const data: SummaryResponse = await response.json();
+    return data;
+  } catch (error) {
+    console.error("خطا در خلاصه‌سازی مقاله:", error);
     throw new Error(
       error instanceof Error ? error.message : "یک خطای ناشناخته در شبکه رخ داد."
     );

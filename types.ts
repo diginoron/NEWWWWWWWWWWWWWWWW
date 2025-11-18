@@ -47,3 +47,13 @@ export interface PreProposalRequest {
     methodology: ResearchMethod;
     targetPopulation?: string;
 }
+
+export interface SummaryResponse {
+  title: string;
+  introduction: string;
+  researchMethod: string;
+  dataCollectionMethod: string;
+  statisticalPopulation: string;
+  dataAnalysisMethod: string;
+  results: string;
+}
