@@ -47,7 +47,7 @@ export default async function handler(request: Request) {
         }
     });
 
-    const translatedKeywords = translationResult.text.trim();
+    const translatedKeywords = translationResult.text?.trim();
     if (!translatedKeywords) {
       throw new Error("ترجمه کلیدواژه‌ها با شکست مواجه شد.");
     }
