@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import OpenAI from "openai";
 import type { ArticleResponse } from '../types';
 
 export const config = {
@@ -20,7 +20,10 @@ export default async function handler(request: Request) {
     });
   }
   
-  const ai = new GoogleGenAI({ apiKey: process.env.AVALAI_API_KEY });
+  const client = new OpenAI({
+    apiKey: process.env.AVALAI_API_KEY,
+    baseURL: "https://api.avalai.ir/v1",
+  });
 
   try {
     const { keywords: originalKeywords } = await request.json();
@@ -39,15 +42,13 @@ export default async function handler(request: Request) {
       Keywords: "${originalKeywords}"
     `;
 
-    const translationResult = await ai.models.generateContent({
+    const translationCompletion = await client.chat.completions.create({
         model: "gemini-2.5-flash",
-        contents: translationPrompt,
-        config: {
-            temperature: 0.1,
-        }
+        messages: [{ role: "user", content: translationPrompt }],
+        temperature: 0.1,
     });
 
-    const translatedKeywords = translationResult.text?.trim();
+    const translatedKeywords = translationCompletion.choices[0].message.content?.trim();
     if (!translatedKeywords) {
       throw new Error("ترجمه کلیدواژه‌ها با شکست مواجه شد.");
     }
@@ -58,56 +59,48 @@ export default async function handler(request: Request) {
       Your task is to find 3 recent (published in the last 3 years) and highly relevant international, English-language academic articles about "${translatedKeywords}".
       
       Instructions:
-      1.  Use your search tool to find real articles from reputable sources like Google Scholar, IEEE Xplore, ACM Digital Library, PubMed, etc.
+      1.  Search for real articles from reputable sources like Google Scholar, IEEE Xplore, ACM Digital Library, PubMed, etc.
       2.  For each article, extract the following information:
           - title: The full title of the article (in English).
           - authors: An array of author names.
           - publicationYear: The publication year as a number.
           - summary: A short, concise summary in English (about 2 sentences).
           - link: A direct, valid, and working URL to the article's abstract page. Verify the link is accessible.
-      3.  Your final output must be **only** a valid JSON array of objects. Do not include any text, explanations, introductions, conclusions, or Markdown formatting like \`\`\`json. Your entire response should be the raw JSON array.
+      3.  Your final output must be **only** a valid JSON object with a single key "articles" which contains an array of the article objects. Do not include any text, explanations, intros, conclusions, or Markdown formatting like \`\`\`json. Your entire response should be the raw JSON object.
 
       Example output format:
-      [
-        {
-          "title": "Example Title 1",
-          "authors": ["Author A", "Author B"],
-          "publicationYear": 2024,
-          "summary": "This is a summary of the first article.",
-          "link": "https://example.com/article1"
-        }
-      ]
+      {
+        "articles": [
+          {
+            "title": "Example Title 1",
+            "authors": ["Author A", "Author B"],
+            "publicationYear": 2024,
+            "summary": "This is a summary of the first article.",
+            "link": "https://example.com/article1"
+          }
+        ]
+      }
     `;
 
-    const articleResult = await ai.models.generateContent({
+    const articleCompletion = await client.chat.completions.create({
       model: "gemini-2.5-flash",
-      contents: articleSearchPrompt,
-      config: {
-        tools: [{googleSearch: {}}],
-        temperature: 0.5,
-      }
+      messages: [{ role: "user", content: articleSearchPrompt }],
+      response_format: { type: "json_object" },
+      temperature: 0.5,
     });
 
-    const jsonText = articleResult.text;
+    const jsonText = articleCompletion.choices[0].message.content;
     if (!jsonText) {
       throw new Error("پاسخ دریافتی از API فاقد محتوای متنی است یا به دلیل خط‌مشی‌های ایمنی مسدود شده است.");
     }
     
-    // Extract JSON array from the response, as the model might add extra text
-    const jsonMatch = jsonText.match(/(\[[\s\S]*\])/);
+    const parsedResponse = JSON.parse(jsonText.trim());
 
-    if (!jsonMatch || !jsonMatch[0]) {
-        throw new Error(`آرایه JSON معتبر در پاسخ مدل یافت نشد. پاسخ دریافت شده: ${jsonText}`);
+    if (!parsedResponse || !Array.isArray(parsedResponse.articles)) {
+        throw new Error(`ساختار JSON دریافت شده از API نامعتبر است. پاسخ دریافت شده: ${jsonText}`);
     }
     
-    const jsonString = jsonMatch[0];
-    const parsedResponse = JSON.parse(jsonString);
-
-    if (!Array.isArray(parsedResponse)) {
-        throw new Error("ساختار JSON دریافت شده از API یک آرایه نیست.");
-    }
-    
-    return new Response(JSON.stringify(parsedResponse as ArticleResponse), {
+    return new Response(JSON.stringify(parsedResponse.articles as ArticleResponse), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -116,12 +109,17 @@ export default async function handler(request: Request) {
     console.error("Error in scholar API route:", error);
 
     let errorMessage = "یک خطای ناشناخته در سرور رخ داد.";
-    if (error instanceof Error) {
+    let statusCode = 500;
+    
+    if (error instanceof OpenAI.APIError) {
+        errorMessage = `فراخوانی API با شکست مواجه شد: ${error.message}`;
+        statusCode = error.status || 500;
+    } else if (error instanceof Error) {
         errorMessage = `خطا در پردازش: ${error.message}`;
     }
 
     return new Response(JSON.stringify({ error: errorMessage }), {
-      status: 500,
+      status: statusCode,
       headers: { 'Content-Type': 'application/json' },
     });
   }
