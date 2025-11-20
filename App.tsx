@@ -135,7 +135,7 @@ const App: React.FC = () => {
                      (mode === 'article' && articleKeywords.trim() !== '') ||
                      (mode === 'pre-proposal' && preProposalTopic.trim() !== '') ||
                      (mode === 'summarize' && uploadedFile !== null) ||
-                     (mode === 'evaluate' && (evalStatement.trim() !== '' || evalMethodology.trim() !== ''));
+                     (mode === 'evaluate' && (evalStatement.trim() !== '' || evalSignificance.trim() !== '' || evalObjectives.trim() !== '' || evalQuestions.trim() !== '' || evalMethodology.trim() !== ''));
 
     if (!hasInput) {
         setTokenEstimate({ input: 0, output: 0, total: 0 });
@@ -264,8 +264,10 @@ const App: React.FC = () => {
         setError("لطفاً یک فایل آپلود کنید.");
         return;
     }
-    if (mode === 'evaluate' && (!evalStatement.trim() || !evalMethodology.trim())) {
-        setError("لطفاً حداقل بخش‌های بیان مسئله و روش‌شناسی را تکمیل کنید.");
+    // New Validation: Check if AT LEAST ONE field is filled
+    const hasEvalInput = evalStatement.trim() || evalSignificance.trim() || evalObjectives.trim() || evalQuestions.trim() || evalMethodology.trim();
+    if (mode === 'evaluate' && !hasEvalInput) {
+        setError("لطفاً حداقل یک بخش از پروپوزال را برای ارزیابی تکمیل کنید.");
         return;
     }
 
@@ -395,7 +397,7 @@ const App: React.FC = () => {
     (mode === 'article' && !articleKeywords.trim()) ||
     (mode === 'pre-proposal' && !preProposalTopic.trim()) ||
     (mode === 'summarize' && !uploadedFile) || 
-    (mode === 'evaluate' && (!evalStatement.trim() || !evalMethodology.trim()));
+    (mode === 'evaluate' && !(evalStatement.trim() || evalSignificance.trim() || evalObjectives.trim() || evalQuestions.trim() || evalMethodology.trim()));
 
 
   const buttonLabels = {
@@ -527,7 +529,7 @@ const App: React.FC = () => {
 
   const renderEvaluationForm = () => (
     <div className="w-full space-y-4">
-        <p className="text-sm text-slate-400 mb-2">برای دریافت تحلیل دقیق، لطفاً بخش‌های مربوطه از پروپوزال خود را در کادرهای زیر کپی کنید.</p>
+        <p className="text-sm text-slate-400 mb-2">برای دریافت تحلیل دقیق، بخش‌های مورد نظر از پروپوزال خود را در کادرهای زیر وارد کنید. نیازی به تکمیل همه موارد نیست.</p>
         
         <div className="space-y-2">
             <label className="block text-slate-300 font-semibold text-sm">1. بیان مسئله</label>

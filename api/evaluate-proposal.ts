@@ -30,47 +30,56 @@ export default async function handler(request: Request) {
     const body: ProposalContent = await request.json();
     const { statement, significance, objectives, questions, methodology } = body;
 
-    // Check if at least the statement and methodology are present
-    if (!statement || !methodology || statement.trim().length < 10 || methodology.trim().length < 10) {
-      return new Response(JSON.stringify({ error: 'لطفاً حداقل بخش‌های "بیان مسئله" و "روش‌شناسی" را تکمیل کنید.' }), {
+    // Build prompt content dynamically based on what is provided
+    let sectionsToEvaluate = "";
+    
+    if (statement && statement.trim()) {
+        sectionsToEvaluate += `\n1. **Statement of Problem (بیان مسئله):**\n"${statement}"\n`;
+    }
+    if (significance && significance.trim()) {
+        sectionsToEvaluate += `\n2. **Significance of the Study (اهمیت و ضرورت):**\n"${significance}"\n`;
+    }
+    if (objectives && objectives.trim()) {
+        sectionsToEvaluate += `\n3. **Objectives (اهداف تحقیق):**\n"${objectives}"\n`;
+    }
+    if (questions && questions.trim()) {
+        sectionsToEvaluate += `\n4. **Research Questions/Hypotheses (سوالات و فرضیات):**\n"${questions}"\n`;
+    }
+    if (methodology && methodology.trim()) {
+        sectionsToEvaluate += `\n5. **Methodology (روش‌شناسی - شامل روش، جامعه، ابزار و تحلیل):**\n"${methodology}"\n`;
+    }
+
+    // Check if at least one section is present
+    if (!sectionsToEvaluate.trim()) {
+      return new Response(JSON.stringify({ error: 'لطفاً حداقل یک بخش از پروپوزال را تکمیل کنید.' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
     const prompt = `
-      You are a strict and expert academic professor and thesis supervisor. Your task is to evaluate a research proposal based on its specific sections provided below.
+      You are a strict and expert academic professor and thesis supervisor. Your task is to evaluate a research proposal. 
+      The user may have provided only specific sections of their proposal.
       
-      ## Proposal Sections:
-      
-      1. **Statement of Problem (بیان مسئله):**
-      "${statement}"
+      **CRITICAL INSTRUCTION:** 
+      Evaluate **ONLY** the sections provided below. Do NOT penalize the user for missing sections (e.g., if they didn't provide "Significance", do not mention it as a weakness). Focus entirely on the quality, academic tone, and scientific validity of the text that *is* present.
 
-      2. **Significance of the Study (اهمیت و ضرورت):**
-      "${significance}"
-
-      3. **Objectives (اهداف تحقیق):**
-      "${objectives}"
-
-      4. **Research Questions/Hypotheses (سوالات و فرضیات):**
-      "${questions}"
-
-      5. **Methodology (روش‌شناسی - شامل روش، جامعه، ابزار و تحلیل):**
-      "${methodology}"
+      ## Provided Proposal Sections:
+      ${sectionsToEvaluate}
 
       ## Task:
-      1.  **Consistency Check:** Ensure the Objectives align with the Problem, and the Methodology is suitable for answering the Questions.
-      2.  **Scientific Validity:** Analyze the academic tone and feasibility.
-      3.  **Identify Weaknesses:** Find specific gaps or errors in these sections.
-      4.  **Suggest Improvements:** Provide concrete scientific solutions.
-      5.  **Score:** Assign a scientific score (1-100).
+      1.  **Consistency Check (if applicable):** If multiple related sections are provided (e.g., Objectives and Questions), check if they align. If a dependency is missing, evaluate the section on its own merit.
+      2.  **Scientific Validity:** Analyze the academic tone and feasibility of the provided text.
+      3.  **Identify Weaknesses:** Find specific gaps or errors in the *provided* content.
+      4.  **Suggest Improvements:** Provide concrete scientific solutions for the *provided* content.
+      5.  **Score:** Assign a scientific score (1-100) based on the quality of the provided content.
 
       ## Output Format:
       The output MUST be in **Persian** and formatted as a single, valid JSON object:
 
       {
         "score": number, // 1 to 100
-        "overallComment": "string", // A brief summary in Persian
+        "overallComment": "string", // A brief summary in Persian evaluating what was submitted.
         "points": [
           {
             "weakness": "string", // Describe the problem in Persian
