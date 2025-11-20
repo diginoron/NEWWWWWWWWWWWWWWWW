@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal, summarizeArticle, evaluateProposal } from './services/geminiService';
-import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse } from './types';
+import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent } from './types';
 import Header from './components/Header';
 import SuggestionCard from './components/SuggestionCard';
 import TopicSuggestionCard, { type TopicItem } from './components/TopicSuggestionCard';
@@ -48,6 +48,13 @@ const App: React.FC = () => {
   const [researchMethod, setResearchMethod] = useState<ResearchMethod>('quantitative');
   const [preProposalTopic, setPreProposalTopic] = useState('');
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+
+  // Evaluation State inputs
+  const [evalStatement, setEvalStatement] = useState('');
+  const [evalSignificance, setEvalSignificance] = useState('');
+  const [evalObjectives, setEvalObjectives] = useState('');
+  const [evalQuestions, setEvalQuestions] = useState('');
+  const [evalMethodology, setEvalMethodology] = useState('');
   
   // State for results
   const [suggestions, setSuggestions] = useState<ThesisSuggestionResponse | null>(null);
@@ -71,7 +78,7 @@ const App: React.FC = () => {
 
     const PROMPT_SIZES = {
         topicSimple: 200, topicAdvanced: 330, article: 270,
-        preProposal: 670, summarize: 330, evaluate: 400,
+        preProposal: 670, summarize: 330, evaluate: 500,
     };
     const OUTPUT_SIZES = {
         topicSimple: 150, topicAdvanced: 300, article: 450,
@@ -115,25 +122,20 @@ const App: React.FC = () => {
         case 'evaluate':
             basePromptTokens = PROMPT_SIZES.evaluate;
             outputTokens = OUTPUT_SIZES.evaluate;
-             if (uploadedFile) {
-                // We truncate to 15000 chars approx
-                const estimatedChars = Math.min(uploadedFile.size, 15000);
-                const fileContentTokens = Math.ceil(estimatedChars / 3);
-                inputTokens = basePromptTokens + fileContentTokens;
-            } else {
-                inputTokens = basePromptTokens;
-            }
+            // Count all text fields
+            userText = `${evalStatement} ${evalSignificance} ${evalObjectives} ${evalQuestions} ${evalMethodology}`;
             break;
     }
 
-    if (mode !== 'summarize' && mode !== 'evaluate') {
+    if (mode !== 'summarize') {
        inputTokens = basePromptTokens + estimateTokens(userText);
     }
     
     const hasInput = (mode === 'topic' && fieldOfStudy.trim() !== '') ||
                      (mode === 'article' && articleKeywords.trim() !== '') ||
                      (mode === 'pre-proposal' && preProposalTopic.trim() !== '') ||
-                     ((mode === 'summarize' || mode === 'evaluate') && uploadedFile !== null);
+                     (mode === 'summarize' && uploadedFile !== null) ||
+                     (mode === 'evaluate' && (evalStatement.trim() !== '' || evalMethodology.trim() !== ''));
 
     if (!hasInput) {
         setTokenEstimate({ input: 0, output: 0, total: 0 });
@@ -151,7 +153,7 @@ const App: React.FC = () => {
         total: finalInput + finalOutput,
     });
 
-  }, [mode, topicMode, fieldOfStudy, advancedKeywords, targetPopulation, articleKeywords, preProposalTopic, uploadedFile]);
+  }, [mode, topicMode, fieldOfStudy, advancedKeywords, targetPopulation, articleKeywords, preProposalTopic, uploadedFile, evalStatement, evalSignificance, evalObjectives, evalQuestions, evalMethodology]);
 
   const handleModeChange = (newMode: AppMode) => {
     setMode(newMode);
@@ -168,6 +170,13 @@ const App: React.FC = () => {
     setSummary(null);
     setEvaluation(null);
     setError(null);
+    
+    // Reset Eval inputs
+    setEvalStatement('');
+    setEvalSignificance('');
+    setEvalObjectives('');
+    setEvalQuestions('');
+    setEvalMethodology('');
   };
   
   const handleTopicModeChange = (newTopicMode: TopicMode) => {
@@ -209,7 +218,7 @@ const App: React.FC = () => {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await window.pdfjsLib.getDocument(arrayBuffer).promise;
         let fullText = '';
-        const MAX_PAGES = 10; // Reduced to 10 pages to avoid timeout
+        const MAX_PAGES = 10; // Reduced to 10 pages
         
         for (let i = 1; i <= Math.min(pdf.numPages, MAX_PAGES); i++) {
             const page = await pdf.getPage(i);
@@ -251,8 +260,12 @@ const App: React.FC = () => {
         setError("لطفاً موضوع پایان‌نامه را وارد کنید.");
         return;
     }
-     if ((mode === 'summarize' || mode === 'evaluate') && !uploadedFile) {
+     if (mode === 'summarize' && !uploadedFile) {
         setError("لطفاً یک فایل آپلود کنید.");
+        return;
+    }
+    if (mode === 'evaluate' && (!evalStatement.trim() || !evalMethodology.trim())) {
+        setError("لطفاً حداقل بخش‌های بیان مسئله و روش‌شناسی را تکمیل کنید.");
         return;
     }
 
@@ -265,8 +278,6 @@ const App: React.FC = () => {
     setSummary(null);
     setEvaluation(null);
 
-    // Reduced to 15000 characters to prevent Vercel/Edge timeout (504 errors).
-    // This covers approximately 3-5 pages of dense text.
     const TRUNCATE_LIMIT = 15000; 
 
     try {
@@ -316,21 +327,16 @@ const App: React.FC = () => {
             setError('خطا در پردازش فایل.');
           }
         }
-      } else if (mode === 'evaluate' && uploadedFile) {
-         try {
-          let proposalContent = await extractTextFromFile(uploadedFile);
-          if (proposalContent.length > TRUNCATE_LIMIT) {
-             proposalContent = proposalContent.substring(0, TRUNCATE_LIMIT);
-          }
-          const result = await evaluateProposal(proposalContent);
+      } else if (mode === 'evaluate') {
+          const params: ProposalContent = {
+            statement: evalStatement,
+            significance: evalSignificance,
+            objectives: evalObjectives,
+            questions: evalQuestions,
+            methodology: evalMethodology
+          };
+          const result = await evaluateProposal(params);
           setEvaluation(result);
-        } catch (parseError) {
-          if (parseError instanceof Error) {
-            setError(`خطا در پردازش فایل: ${parseError.message}`);
-          } else {
-            setError('خطا در پردازش فایل.');
-          }
-        }
       }
     } catch (err) {
       if (err instanceof Error) {
@@ -341,7 +347,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, academicLevel, researchMethod, targetPopulation, preProposalTopic, uploadedFile]);
+  }, [isLoading, mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, academicLevel, researchMethod, targetPopulation, preProposalTopic, uploadedFile, evalStatement, evalSignificance, evalObjectives, evalQuestions, evalMethodology]);
   
   const handleCopyTopic = useCallback((index: number) => {
     const topicText = topicItems[index]?.persian;
@@ -388,7 +394,8 @@ const App: React.FC = () => {
     (mode === 'topic' && !fieldOfStudy.trim()) || 
     (mode === 'article' && !articleKeywords.trim()) ||
     (mode === 'pre-proposal' && !preProposalTopic.trim()) ||
-    ((mode === 'summarize' || mode === 'evaluate') && !uploadedFile);
+    (mode === 'summarize' && !uploadedFile) || 
+    (mode === 'evaluate' && (!evalStatement.trim() || !evalMethodology.trim()));
 
 
   const buttonLabels = {
@@ -517,6 +524,67 @@ const App: React.FC = () => {
         )}
      </div>
   );
+
+  const renderEvaluationForm = () => (
+    <div className="w-full space-y-4">
+        <p className="text-sm text-slate-400 mb-2">برای دریافت تحلیل دقیق، لطفاً بخش‌های مربوطه از پروپوزال خود را در کادرهای زیر کپی کنید.</p>
+        
+        <div className="space-y-2">
+            <label className="block text-slate-300 font-semibold text-sm">1. بیان مسئله</label>
+            <textarea
+                value={evalStatement}
+                onChange={(e) => setEvalStatement(e.target.value)}
+                placeholder="متن بیان مسئله..."
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 px-4 focus:ring-2 focus:ring-cyan-500 outline-none text-sm min-h-[100px]"
+                disabled={isLoading}
+            />
+        </div>
+
+        <div className="space-y-2">
+            <label className="block text-slate-300 font-semibold text-sm">2. اهمیت و ضرورت موضوع</label>
+            <textarea
+                value={evalSignificance}
+                onChange={(e) => setEvalSignificance(e.target.value)}
+                placeholder="متن اهمیت موضوع..."
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 px-4 focus:ring-2 focus:ring-cyan-500 outline-none text-sm min-h-[80px]"
+                disabled={isLoading}
+            />
+        </div>
+
+        <div className="space-y-2">
+            <label className="block text-slate-300 font-semibold text-sm">3. اهداف تحقیق</label>
+            <textarea
+                value={evalObjectives}
+                onChange={(e) => setEvalObjectives(e.target.value)}
+                placeholder="اهداف اصلی و فرعی..."
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 px-4 focus:ring-2 focus:ring-cyan-500 outline-none text-sm min-h-[80px]"
+                disabled={isLoading}
+            />
+        </div>
+
+        <div className="space-y-2">
+            <label className="block text-slate-300 font-semibold text-sm">4. سوالات و فرضیات تحقیق</label>
+            <textarea
+                value={evalQuestions}
+                onChange={(e) => setEvalQuestions(e.target.value)}
+                placeholder="سوالات و فرضیات..."
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 px-4 focus:ring-2 focus:ring-cyan-500 outline-none text-sm min-h-[80px]"
+                disabled={isLoading}
+            />
+        </div>
+
+        <div className="space-y-2">
+            <label className="block text-slate-300 font-semibold text-sm">5. روش‌شناسی تحقیق</label>
+            <textarea
+                value={evalMethodology}
+                onChange={(e) => setEvalMethodology(e.target.value)}
+                placeholder="شامل: روش تحقیق، جامعه و نمونه، ابزار گردآوری داده‌ها، روش تجزیه و تحلیل داده‌ها..."
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 px-4 focus:ring-2 focus:ring-cyan-500 outline-none text-sm min-h-[120px]"
+                disabled={isLoading}
+            />
+        </div>
+    </div>
+  );
   
   const renderPreProposalForm = () => (
     <div className="w-full space-y-4">
@@ -588,9 +656,9 @@ const App: React.FC = () => {
     </div>
   );
 
-  const isMultiInputForm = (mode === 'topic' && topicMode === 'advanced') || mode === 'pre-proposal';
+  const isMultiInputForm = (mode === 'topic' && topicMode === 'advanced') || mode === 'pre-proposal' || mode === 'evaluate';
   const isSingleInputForm = (mode === 'topic' && topicMode === 'simple') || mode === 'article';
-  const isFileUploadForm = mode === 'summarize' || mode === 'evaluate';
+  const isFileUploadForm = mode === 'summarize';
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center p-4 sm:p-6 lg:p-8">
@@ -634,7 +702,7 @@ const App: React.FC = () => {
             {mode === 'article' && renderArticleForm()}
             {mode === 'pre-proposal' && renderPreProposalForm()}
             {mode === 'summarize' && renderFileUploadForm('فایل مقاله خود را اینجا بکشید یا کلیک کنید')}
-            {mode === 'evaluate' && renderFileUploadForm('فایل پروپوزال خود را اینجا بکشید یا کلیک کنید')}
+            {mode === 'evaluate' && renderEvaluationForm()}
             
             <button
               type="submit"
@@ -658,7 +726,7 @@ const App: React.FC = () => {
             input={tokenEstimate.input} 
             output={tokenEstimate.output}
             total={tokenEstimate.total}
-            note={(mode === 'summarize' || mode === 'evaluate') && uploadedFile ? 'به دلیل محدودیت‌های سرور، تنها بخشی از ابتدای فایل (حدود 15000 کاراکتر) برای پردازش ارسال می‌شود.' : undefined}
+            note={(mode === 'summarize') && uploadedFile ? 'به دلیل محدودیت‌های سرور، تنها بخشی از ابتدای فایل (حدود 15000 کاراکتر) برای پردازش ارسال می‌شود.' : undefined}
           />
         </div>
 

@@ -1,3 +1,4 @@
+
 export interface ThesisSuggestionResponse {
   keywords: string[];
   topics: string[];
@@ -67,4 +68,12 @@ export interface EvaluationResponse {
   score: number;
   points: EvaluationPoint[];
   overallComment: string;
+}
+
+export interface ProposalContent {
+  statement: string;
+  significance: string;
+  objectives: string;
+  questions: string;
+  methodology: string;
 }

@@ -1,5 +1,5 @@
 
-import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse } from '../types';
+import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent } from '../types';
 
 async function handleResponseError(response: Response): Promise<string> {
     let errorMsg = `درخواست با کد وضعیت ${response.status} با شکست مواجه شد`;
@@ -147,14 +147,14 @@ export async function summarizeArticle(content: string): Promise<SummaryResponse
   }
 }
 
-export async function evaluateProposal(content: string): Promise<EvaluationResponse> {
+export async function evaluateProposal(data: ProposalContent): Promise<EvaluationResponse> {
   try {
     const response = await fetch('/api/evaluate-proposal', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify(data),
     });
 
     if (!response.ok) {
@@ -162,8 +162,8 @@ export async function evaluateProposal(content: string): Promise<EvaluationRespo
       throw new Error(errorMessage);
     }
     
-    const data: EvaluationResponse = await response.json();
-    return data;
+    const responseData: EvaluationResponse = await response.json();
+    return responseData;
   } catch (error) {
     console.error("خطا در ارزیابی پروپوزال:", error);
     throw new Error(

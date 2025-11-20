@@ -1,5 +1,6 @@
+
 import OpenAI from "openai";
-import type { EvaluationResponse } from '../types';
+import type { EvaluationResponse, ProposalContent } from '../types';
 
 export const config = {
   runtime: 'edge',
@@ -26,37 +27,46 @@ export default async function handler(request: Request) {
   });
 
   try {
-    const { content: proposalContent } = await request.json();
+    const body: ProposalContent = await request.json();
+    const { statement, significance, objectives, questions, methodology } = body;
 
-    if (!proposalContent || typeof proposalContent !== 'string' || proposalContent.trim().length < 100) {
-      return new Response(JSON.stringify({ error: 'محتوای فایل برای ارزیابی بسیار کوتاه یا نامعتبر است.' }), {
+    // Check if at least the statement and methodology are present
+    if (!statement || !methodology || statement.trim().length < 10 || methodology.trim().length < 10) {
+      return new Response(JSON.stringify({ error: 'لطفاً حداقل بخش‌های "بیان مسئله" و "روش‌شناسی" را تکمیل کنید.' }), {
         status: 400,
         headers: { 'Content-Type': 'application/json' },
       });
     }
 
     const prompt = `
-      You are a strict and expert academic professor and thesis supervisor. Your task is to evaluate the provided research proposal text critically.
+      You are a strict and expert academic professor and thesis supervisor. Your task is to evaluate a research proposal based on its specific sections provided below.
       
+      ## Proposal Sections:
+      
+      1. **Statement of Problem (بیان مسئله):**
+      "${statement}"
+
+      2. **Significance of the Study (اهمیت و ضرورت):**
+      "${significance}"
+
+      3. **Objectives (اهداف تحقیق):**
+      "${objectives}"
+
+      4. **Research Questions/Hypotheses (سوالات و فرضیات):**
+      "${questions}"
+
+      5. **Methodology (روش‌شناسی - شامل روش، جامعه، ابزار و تحلیل):**
+      "${methodology}"
+
       ## Task:
-      1.  Analyze the text for scientific validity, coherence, methodology, and academic writing style.
-      2.  Identify specific **Weaknesses** in the proposal.
-      3.  Provide concrete **Improvements** for each weakness.
-      4.  Assign an overall scientific **Score** from 1 to 100 based on the quality of the proposal.
-      5.  Write a short **Overall Comment** summarizing your view.
-
-      ## Proposal Text:
-      """
-      ${proposalContent}
-      """
-
-      ## Instructions:
-      -   Be professional, academic, yet critical.
-      -   The output MUST be in **Persian**.
-      -   Provide at least 3 and at most 6 key points of evaluation.
+      1.  **Consistency Check:** Ensure the Objectives align with the Problem, and the Methodology is suitable for answering the Questions.
+      2.  **Scientific Validity:** Analyze the academic tone and feasibility.
+      3.  **Identify Weaknesses:** Find specific gaps or errors in these sections.
+      4.  **Suggest Improvements:** Provide concrete scientific solutions.
+      5.  **Score:** Assign a scientific score (1-100).
 
       ## Output Format:
-      Your entire output MUST be a single, valid JSON object with the following structure. Do not include any text outside the JSON.
+      The output MUST be in **Persian** and formatted as a single, valid JSON object:
 
       {
         "score": number, // 1 to 100
@@ -68,6 +78,8 @@ export default async function handler(request: Request) {
           }
         ]
       }
+      
+      Provide between 3 to 6 evaluation points.
     `;
 
     const completion = await client.chat.completions.create({
