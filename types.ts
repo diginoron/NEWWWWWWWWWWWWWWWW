@@ -57,3 +57,14 @@ export interface SummaryResponse {
   dataAnalysisMethod: string;
   results: string;
 }
+
+export interface EvaluationPoint {
+  weakness: string;
+  improvement: string;
+}
+
+export interface EvaluationResponse {
+  score: number;
+  points: EvaluationPoint[];
+  overallComment: string;
+}
