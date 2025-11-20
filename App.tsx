@@ -104,7 +104,9 @@ const App: React.FC = () => {
             basePromptTokens = PROMPT_SIZES.summarize;
             outputTokens = OUTPUT_SIZES.summarize;
             if (uploadedFile) {
-                const fileContentTokens = Math.ceil(uploadedFile.size / 3);
+                // We truncate to 15000 chars approx
+                const estimatedChars = Math.min(uploadedFile.size, 15000); 
+                const fileContentTokens = Math.ceil(estimatedChars / 3);
                 inputTokens = basePromptTokens + fileContentTokens;
             } else {
                 inputTokens = basePromptTokens;
@@ -114,7 +116,9 @@ const App: React.FC = () => {
             basePromptTokens = PROMPT_SIZES.evaluate;
             outputTokens = OUTPUT_SIZES.evaluate;
              if (uploadedFile) {
-                const fileContentTokens = Math.ceil(uploadedFile.size / 3);
+                // We truncate to 15000 chars approx
+                const estimatedChars = Math.min(uploadedFile.size, 15000);
+                const fileContentTokens = Math.ceil(estimatedChars / 3);
                 inputTokens = basePromptTokens + fileContentTokens;
             } else {
                 inputTokens = basePromptTokens;
@@ -205,7 +209,7 @@ const App: React.FC = () => {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await window.pdfjsLib.getDocument(arrayBuffer).promise;
         let fullText = '';
-        const MAX_PAGES = 15; // Limit pages to prevent browser freeze and huge payload
+        const MAX_PAGES = 10; // Reduced to 10 pages to avoid timeout
         
         for (let i = 1; i <= Math.min(pdf.numPages, MAX_PAGES); i++) {
             const page = await pdf.getPage(i);
@@ -261,7 +265,9 @@ const App: React.FC = () => {
     setSummary(null);
     setEvaluation(null);
 
-    const TRUNCATE_LIMIT = 40000; // Limit payload size
+    // Reduced to 15000 characters to prevent Vercel/Edge timeout (504 errors).
+    // This covers approximately 3-5 pages of dense text.
+    const TRUNCATE_LIMIT = 15000; 
 
     try {
       if (mode === 'topic') {
@@ -506,6 +512,7 @@ const App: React.FC = () => {
         {uploadedFile && (
             <div className="mt-4 text-center bg-slate-700/50 py-2 px-4 rounded-lg text-slate-300">
                 <p>فایل انتخاب شده: <span className="font-semibold text-cyan-400">{uploadedFile.name}</span></p>
+                <p className="text-xs text-amber-400 mt-1">توجه: تنها 10 صفحه اول فایل پردازش می‌شود.</p>
             </div>
         )}
      </div>
@@ -651,7 +658,7 @@ const App: React.FC = () => {
             input={tokenEstimate.input} 
             output={tokenEstimate.output}
             total={tokenEstimate.total}
-            note={(mode === 'summarize' || mode === 'evaluate') && uploadedFile ? 'هزینه ورودی بر اساس حجم فایل تخمین زده شده و ممکن است دقیق نباشد.' : undefined}
+            note={(mode === 'summarize' || mode === 'evaluate') && uploadedFile ? 'به دلیل محدودیت‌های سرور، تنها بخشی از ابتدای فایل (حدود 15000 کاراکتر) برای پردازش ارسال می‌شود.' : undefined}
           />
         </div>
 
