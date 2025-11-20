@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect } from 'react';
 import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal, summarizeArticle, evaluateProposal } from './services/geminiService';
 import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse } from './types';
@@ -175,7 +176,7 @@ const App: React.FC = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
         const file = e.target.files[0];
-        const MAX_FILE_SIZE = 4 * 1024 * 1024; // Increased to 4 MB for evaluation
+        const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4 MB
 
         if (file.size > MAX_FILE_SIZE) {
             setError("حجم فایل نباید بیشتر از 4 مگابایت باشد.");
@@ -204,7 +205,9 @@ const App: React.FC = () => {
         const arrayBuffer = await file.arrayBuffer();
         const pdf = await window.pdfjsLib.getDocument(arrayBuffer).promise;
         let fullText = '';
-        for (let i = 1; i <= pdf.numPages; i++) {
+        const MAX_PAGES = 15; // Limit pages to prevent browser freeze and huge payload
+        
+        for (let i = 1; i <= Math.min(pdf.numPages, MAX_PAGES); i++) {
             const page = await pdf.getPage(i);
             const textContent = await page.getTextContent();
             fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n';
@@ -258,6 +261,8 @@ const App: React.FC = () => {
     setSummary(null);
     setEvaluation(null);
 
+    const TRUNCATE_LIMIT = 40000; // Limit payload size
+
     try {
       if (mode === 'topic') {
         let result: ThesisSuggestionResponse;
@@ -292,7 +297,10 @@ const App: React.FC = () => {
         setPreProposal(result);
       } else if (mode === 'summarize' && uploadedFile) {
         try {
-          const articleContent = await extractTextFromFile(uploadedFile);
+          let articleContent = await extractTextFromFile(uploadedFile);
+          if (articleContent.length > TRUNCATE_LIMIT) {
+              articleContent = articleContent.substring(0, TRUNCATE_LIMIT);
+          }
           const result = await summarizeArticle(articleContent);
           setSummary(result);
         } catch (parseError) {
@@ -304,7 +312,10 @@ const App: React.FC = () => {
         }
       } else if (mode === 'evaluate' && uploadedFile) {
          try {
-          const proposalContent = await extractTextFromFile(uploadedFile);
+          let proposalContent = await extractTextFromFile(uploadedFile);
+          if (proposalContent.length > TRUNCATE_LIMIT) {
+             proposalContent = proposalContent.substring(0, TRUNCATE_LIMIT);
+          }
           const result = await evaluateProposal(proposalContent);
           setEvaluation(result);
         } catch (parseError) {
@@ -317,7 +328,7 @@ const App: React.FC = () => {
       }
     } catch (err) {
       if (err instanceof Error) {
-        setError(`خطا در دریافت اطلاعات: ${err.message}. لطفا اتصال اینترنت خود را بررسی کرده و مجددا تلاش کنید.`);
+        setError(`خطا در دریافت اطلاعات: ${err.message}.`);
       } else {
         setError('یک خطای ناشناخته رخ داد.');
       }

@@ -1,4 +1,25 @@
+
 import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse } from '../types';
+
+async function handleResponseError(response: Response): Promise<string> {
+    let errorMsg = `درخواست با کد وضعیت ${response.status} با شکست مواجه شد`;
+    try {
+        const errorText = await response.text();
+        try {
+            const errorJson = JSON.parse(errorText);
+            if (errorJson.error) return errorJson.error;
+        } catch {
+            if (errorText.length < 500) {
+                errorMsg += `: ${errorText}`;
+            } else {
+                errorMsg += '. (پاسخ سرور فرمت نامعتبر دارد)';
+            }
+        }
+    } catch (e) {
+        // response.text() failed
+    }
+    return errorMsg;
+}
 
 export async function generateThesisSuggestions(params: ThesisSuggestionRequest): Promise<ThesisSuggestionResponse> {
   try {
@@ -11,8 +32,8 @@ export async function generateThesisSuggestions(params: ThesisSuggestionRequest)
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'پاسخ خطا از سرور قابل خواندن نبود' }));
-      throw new Error(errorData.error || `درخواست با کد وضعیت ${response.status} با شکست مواجه شد`);
+      const errorMessage = await handleResponseError(response);
+      throw new Error(errorMessage);
     }
 
     const data: ThesisSuggestionResponse = await response.json();
@@ -36,8 +57,8 @@ export async function findRelevantArticles(keywords: string): Promise<ArticleRes
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'پاسخ خطا از سرور قابل خواندن نبود' }));
-      throw new Error(errorData.error || `درخواست با کد وضعیت ${response.status} با شکست مواجه شد`);
+      const errorMessage = await handleResponseError(response);
+      throw new Error(errorMessage);
     }
 
     const data: ArticleResponse = await response.json();
@@ -61,8 +82,8 @@ export async function translateText(text: string): Promise<string> {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'پاسخ خطا از سرور قابل خواندن نبود' }));
-      throw new Error(errorData.error || `درخواست با کد وضعیت ${response.status} با شکست مواجه شد`);
+      const errorMessage = await handleResponseError(response);
+      throw new Error(errorMessage);
     }
 
     const data: { translation: string } = await response.json();
@@ -87,8 +108,8 @@ export async function generatePreProposal(params: PreProposalRequest): Promise<P
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'پاسخ خطا از سرور قابل خواندن نبود' }));
-      throw new Error(errorData.error || `درخواست با کد وضعیت ${response.status} با شکست مواجه شد`);
+      const errorMessage = await handleResponseError(response);
+      throw new Error(errorMessage);
     }
 
     const data: PreProposalResponse = await response.json();
@@ -112,8 +133,8 @@ export async function summarizeArticle(content: string): Promise<SummaryResponse
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'پاسخ خطا از سرور قابل خواندن نبود.' }));
-      throw new Error(errorData.error || `درخواست با کد وضعیت ${response.status} با شکست مواجه شد`);
+      const errorMessage = await handleResponseError(response);
+      throw new Error(errorMessage);
     }
     
     const data: SummaryResponse = await response.json();
@@ -137,8 +158,8 @@ export async function evaluateProposal(content: string): Promise<EvaluationRespo
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'پاسخ خطا از سرور قابل خواندن نبود.' }));
-      throw new Error(errorData.error || `درخواست با کد وضعیت ${response.status} با شکست مواجه شد`);
+      const errorMessage = await handleResponseError(response);
+      throw new Error(errorMessage);
     }
     
     const data: EvaluationResponse = await response.json();
