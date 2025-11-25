@@ -1,8 +1,9 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal, summarizeArticle, evaluateProposal, translateGeneralText } from './services/geminiService';
-import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent, TranslationTone, TranslationDirection, GeneralTranslateResponse } from './types';
+import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent, TranslationTone, TranslationDirection, GeneralTranslateResponse, AppMode, TopicMode } from './types';
 import Header from './components/Header';
+import Navbar from './components/Navbar';
 import SuggestionCard from './components/SuggestionCard';
 import TopicSuggestionCard, { type TopicItem } from './components/TopicSuggestionCard';
 import ArticleCard from './components/ArticleCard';
@@ -21,9 +22,6 @@ declare global {
     mammoth: any;
   }
 }
-
-type AppMode = 'topic' | 'article' | 'pre-proposal' | 'summarize' | 'evaluate' | 'translate';
-type TopicMode = 'simple' | 'advanced';
 
 const Tooltip: React.FC<{ text: string }> = ({ text }) => (
   <div className="relative group flex items-center">
@@ -766,145 +764,149 @@ const App: React.FC = () => {
   const isFileUploadForm = mode === 'summarize';
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col items-center p-4 sm:p-6 lg:p-8">
-      <Header />
-      <main className="w-full max-w-4xl mx-auto flex-grow">
-        
-        <div className="flex justify-center mb-6">
-          <div className="bg-slate-800 p-1 rounded-lg flex gap-1 flex-wrap justify-center">
-            <button onClick={() => handleModeChange('topic')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'topic' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
-              پیشنهاد موضوع
-            </button>
-            <button onClick={() => handleModeChange('article')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'article' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
-              جستجوی مقاله
-            </button>
-            <button onClick={() => handleModeChange('pre-proposal')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'pre-proposal' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
-              پیش پروپوزال
-            </button>
-            <button onClick={() => handleModeChange('summarize')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'summarize' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
-              خلاصه سازی مقالات
-            </button>
-            <button onClick={() => handleModeChange('evaluate')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'evaluate' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
-              ارزیابی پروپوزال
-            </button>
-             <button onClick={() => handleModeChange('translate')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'translate' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
-              مترجم هوشمند
-            </button>
+    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col">
+      <Navbar currentMode={mode} onModeChange={handleModeChange} />
+      
+      <div className="flex-grow flex flex-col items-center p-4 sm:p-6 lg:p-8">
+        <div className="w-full max-w-4xl mx-auto">
+          <Header />
+          
+          <div className="flex justify-center mb-6">
+            <div className="bg-slate-800 p-1 rounded-lg flex gap-1 flex-wrap justify-center">
+              <button onClick={() => handleModeChange('topic')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'topic' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
+                پیشنهاد موضوع
+              </button>
+              <button onClick={() => handleModeChange('article')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'article' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
+                جستجوی مقاله
+              </button>
+              <button onClick={() => handleModeChange('pre-proposal')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'pre-proposal' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
+                پیش پروپوزال
+              </button>
+              <button onClick={() => handleModeChange('summarize')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'summarize' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
+                خلاصه سازی مقالات
+              </button>
+              <button onClick={() => handleModeChange('evaluate')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'evaluate' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
+                ارزیابی پروپوزال
+              </button>
+               <button onClick={() => handleModeChange('translate')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'translate' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
+                مترجم هوشمند
+              </button>
+            </div>
+          </div>
+          
+          {mode === 'topic' && (
+              <div className="flex justify-center mb-4 text-sm">
+                  <div className="bg-slate-700/50 p-1 rounded-lg flex gap-1">
+                      <button onClick={() => handleTopicModeChange('simple')} className={`px-3 py-1 rounded-md transition-colors ${topicMode === 'simple' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>ساده</button>
+                      <button onClick={() => handleTopicModeChange('advanced')} className={`px-3 py-1 rounded-md transition-colors ${topicMode === 'advanced' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>پیشرفته</button>
+                  </div>
+              </div>
+          )}
+
+
+          <div className="bg-slate-800/50 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-2xl border border-slate-700 transition-all duration-300">
+            <form onSubmit={handleSubmit} className={`flex ${isMultiInputForm || isFileUploadForm ? 'flex-col' : 'flex-col sm:flex-row'} items-start gap-4`}>
+              {mode === 'topic' && topicMode === 'simple' && renderSimpleTopicForm()}
+              {mode === 'topic' && topicMode === 'advanced' && renderAdvancedTopicForm()}
+              {mode === 'article' && renderArticleForm()}
+              {mode === 'pre-proposal' && renderPreProposalForm()}
+              {mode === 'summarize' && renderFileUploadForm('فایل مقاله خود را اینجا بکشید یا کلیک کنید')}
+              {mode === 'evaluate' && renderEvaluationForm()}
+              {mode === 'translate' && renderTranslateForm()}
+              
+              <button
+                type="submit"
+                disabled={isSubmitDisabled}
+                className={`flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg shadow-cyan-600/30 text-lg ${isMultiInputForm || isFileUploadForm ? 'w-full mt-2' : ''} ${isSingleInputForm ? 'w-full sm:w-auto self-center sm:self-auto' : ''}`}
+              >
+                {isLoading ? (
+                  <>
+                    <LoadingSpinner />
+                    <span>در حال پردازش...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>{buttonLabels[mode]}</span>
+                    <ChevronLeftIcon />
+                  </>
+                )}
+              </button>
+            </form>
+            <TokenEstimator 
+              input={tokenEstimate.input} 
+              output={tokenEstimate.output}
+              total={tokenEstimate.total}
+              note={(mode === 'summarize') && uploadedFile ? 'به دلیل محدودیت‌های سرور، تنها بخشی از ابتدای فایل (حدود 15000 کاراکتر) برای پردازش ارسال می‌شود.' : undefined}
+            />
+          </div>
+
+          <div className="mt-8">
+            {error && <ErrorAlert message={error} />}
+            
+            {suggestions && mode === 'topic' && (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
+                  <SuggestionCard title="کلیدواژه‌های پیشنهادی" items={suggestions.keywords} />
+                  <TopicSuggestionCard 
+                    title="موضوعات پیشنهادی برای پایان‌نامه"
+                    topics={topicItems}
+                    onCopy={handleCopyTopic}
+                    onTranslate={handleTranslateTopic}
+                  />
+                </div>
+                <div className="mt-8 text-center bg-slate-800/60 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-slate-700 animate-fade-in">
+                  <p className="text-slate-300 mb-4 text-lg">
+                    برای مشاوره و نگارش پروپوزال و پایان نامه بر اساس موضوعات انتخابی از خدمات تخصصی کاسپین تز استفاده کنید:
+                  </p>
+                  <a
+                    href="https://caspianthesis.com/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg shadow-teal-600/40 text-lg"
+                  >
+                    دریافت مشاوره تخصصی
+                  </a>
+                </div>
+              </>
+            )}
+
+            {articles && mode === 'article' && (
+               <div className="animate-fade-in">
+                  <ArticleCard articles={articles} />
+              </div>
+            )}
+
+            {preProposal && mode === 'pre-proposal' && (
+              <div className="animate-fade-in">
+                  <PreProposalCard data={preProposal} />
+              </div>
+            )}
+
+            {summary && mode === 'summarize' && (
+              <div className="animate-fade-in">
+                <SummarizeCard data={summary} />
+              </div>
+            )}
+
+            {evaluation && mode === 'evaluate' && (
+              <div className="animate-fade-in">
+                <EvaluationCard data={evaluation} />
+              </div>
+            )}
+
+            {translationResult && mode === 'translate' && (
+                <div className="animate-fade-in">
+                    <TranslateResultCard 
+                      originalText={translateInput} 
+                      translatedText={translationResult.translation} 
+                      direction={translateDirection}
+                    />
+                </div>
+            )}
           </div>
         </div>
-        
-        {mode === 'topic' && (
-            <div className="flex justify-center mb-4 text-sm">
-                <div className="bg-slate-700/50 p-1 rounded-lg flex gap-1">
-                    <button onClick={() => handleTopicModeChange('simple')} className={`px-3 py-1 rounded-md transition-colors ${topicMode === 'simple' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>ساده</button>
-                    <button onClick={() => handleTopicModeChange('advanced')} className={`px-3 py-1 rounded-md transition-colors ${topicMode === 'advanced' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-600'}`}>پیشرفته</button>
-                </div>
-            </div>
-        )}
-
-
-        <div className="bg-slate-800/50 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-2xl border border-slate-700 transition-all duration-300">
-          <form onSubmit={handleSubmit} className={`flex ${isMultiInputForm || isFileUploadForm ? 'flex-col' : 'flex-col sm:flex-row'} items-start gap-4`}>
-            {mode === 'topic' && topicMode === 'simple' && renderSimpleTopicForm()}
-            {mode === 'topic' && topicMode === 'advanced' && renderAdvancedTopicForm()}
-            {mode === 'article' && renderArticleForm()}
-            {mode === 'pre-proposal' && renderPreProposalForm()}
-            {mode === 'summarize' && renderFileUploadForm('فایل مقاله خود را اینجا بکشید یا کلیک کنید')}
-            {mode === 'evaluate' && renderEvaluationForm()}
-            {mode === 'translate' && renderTranslateForm()}
-            
-            <button
-              type="submit"
-              disabled={isSubmitDisabled}
-              className={`flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg shadow-cyan-600/30 text-lg ${isMultiInputForm || isFileUploadForm ? 'w-full mt-2' : ''} ${isSingleInputForm ? 'w-full sm:w-auto self-center sm:self-auto' : ''}`}
-            >
-              {isLoading ? (
-                <>
-                  <LoadingSpinner />
-                  <span>در حال پردازش...</span>
-                </>
-              ) : (
-                <>
-                  <span>{buttonLabels[mode]}</span>
-                  <ChevronLeftIcon />
-                </>
-              )}
-            </button>
-          </form>
-          <TokenEstimator 
-            input={tokenEstimate.input} 
-            output={tokenEstimate.output}
-            total={tokenEstimate.total}
-            note={(mode === 'summarize') && uploadedFile ? 'به دلیل محدودیت‌های سرور، تنها بخشی از ابتدای فایل (حدود 15000 کاراکتر) برای پردازش ارسال می‌شود.' : undefined}
-          />
-        </div>
-
-        <div className="mt-8">
-          {error && <ErrorAlert message={error} />}
-          
-          {suggestions && mode === 'topic' && (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 animate-fade-in">
-                <SuggestionCard title="کلیدواژه‌های پیشنهادی" items={suggestions.keywords} />
-                <TopicSuggestionCard 
-                  title="موضوعات پیشنهادی برای پایان‌نامه"
-                  topics={topicItems}
-                  onCopy={handleCopyTopic}
-                  onTranslate={handleTranslateTopic}
-                />
-              </div>
-              <div className="mt-8 text-center bg-slate-800/60 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-slate-700 animate-fade-in">
-                <p className="text-slate-300 mb-4 text-lg">
-                  برای مشاوره و نگارش پروپوزال و پایان نامه بر اساس موضوعات انتخابی از خدمات تخصصی کاسپین تز استفاده کنید:
-                </p>
-                <a
-                  href="https://caspianthesis.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg shadow-teal-600/40 text-lg"
-                >
-                  دریافت مشاوره تخصصی
-                </a>
-              </div>
-            </>
-          )}
-
-          {articles && mode === 'article' && (
-             <div className="animate-fade-in">
-                <ArticleCard articles={articles} />
-            </div>
-          )}
-
-          {preProposal && mode === 'pre-proposal' && (
-            <div className="animate-fade-in">
-                <PreProposalCard data={preProposal} />
-            </div>
-          )}
-
-          {summary && mode === 'summarize' && (
-            <div className="animate-fade-in">
-              <SummarizeCard data={summary} />
-            </div>
-          )}
-
-          {evaluation && mode === 'evaluate' && (
-            <div className="animate-fade-in">
-              <EvaluationCard data={evaluation} />
-            </div>
-          )}
-
-          {translationResult && mode === 'translate' && (
-              <div className="animate-fade-in">
-                  <TranslateResultCard 
-                    originalText={translateInput} 
-                    translatedText={translationResult.translation} 
-                    direction={translateDirection}
-                  />
-              </div>
-          )}
-        </div>
-      </main>
-      <footer className="text-center text-slate-500 mt-8 text-sm">
+      </div>
+      <footer className="text-center text-slate-500 mt-8 mb-4 text-sm">
         <p>توسعه یافته توسط دیجی نورون</p>
       </footer>
     </div>

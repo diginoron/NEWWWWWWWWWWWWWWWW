@@ -91,3 +91,7 @@ export interface GeneralTranslateRequest {
 export interface GeneralTranslateResponse {
     translation: string;
 }
+
+// App Navigation Types
+export type AppMode = 'topic' | 'article' | 'pre-proposal' | 'summarize' | 'evaluate' | 'translate';
+export type TopicMode = 'simple' | 'advanced';
