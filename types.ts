@@ -77,3 +77,17 @@ export interface ProposalContent {
   questions: string;
   methodology: string;
 }
+
+// Translation Types
+export type TranslationTone = 'formal' | 'informal' | 'academic';
+export type TranslationDirection = 'fa-en' | 'en-fa';
+
+export interface GeneralTranslateRequest {
+    text: string;
+    tone: TranslationTone;
+    direction: TranslationDirection;
+}
+
+export interface GeneralTranslateResponse {
+    translation: string;
+}

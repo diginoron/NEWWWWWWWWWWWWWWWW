@@ -1,7 +1,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
-import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal, summarizeArticle, evaluateProposal } from './services/geminiService';
-import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent } from './types';
+import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal, summarizeArticle, evaluateProposal, translateGeneralText } from './services/geminiService';
+import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent, TranslationTone, TranslationDirection, GeneralTranslateResponse } from './types';
 import Header from './components/Header';
 import SuggestionCard from './components/SuggestionCard';
 import TopicSuggestionCard, { type TopicItem } from './components/TopicSuggestionCard';
@@ -9,9 +9,10 @@ import ArticleCard from './components/ArticleCard';
 import PreProposalCard from './components/PreProposalCard';
 import SummarizeCard from './components/SummarizeCard';
 import EvaluationCard from './components/EvaluationCard';
+import TranslateResultCard from './components/TranslateResultCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorAlert from './components/ErrorAlert';
-import { BookOpenIcon, ChevronLeftIcon, FileTextIcon, SearchIcon, UsersIcon, HelpCircleIcon, UploadCloudIcon } from './components/Icons';
+import { BookOpenIcon, ChevronLeftIcon, FileTextIcon, SearchIcon, UsersIcon, HelpCircleIcon, UploadCloudIcon, LanguageIcon } from './components/Icons';
 import TokenEstimator from './components/TokenEstimator';
 
 declare global {
@@ -21,7 +22,7 @@ declare global {
   }
 }
 
-type AppMode = 'topic' | 'article' | 'pre-proposal' | 'summarize' | 'evaluate';
+type AppMode = 'topic' | 'article' | 'pre-proposal' | 'summarize' | 'evaluate' | 'translate';
 type TopicMode = 'simple' | 'advanced';
 
 const Tooltip: React.FC<{ text: string }> = ({ text }) => (
@@ -55,6 +56,11 @@ const App: React.FC = () => {
   const [evalObjectives, setEvalObjectives] = useState('');
   const [evalQuestions, setEvalQuestions] = useState('');
   const [evalMethodology, setEvalMethodology] = useState('');
+
+  // Translation State inputs
+  const [translateInput, setTranslateInput] = useState('');
+  const [translateTone, setTranslateTone] = useState<TranslationTone>('formal');
+  const [translateDirection, setTranslateDirection] = useState<TranslationDirection>('fa-en');
   
   // State for results
   const [suggestions, setSuggestions] = useState<ThesisSuggestionResponse | null>(null);
@@ -63,6 +69,8 @@ const App: React.FC = () => {
   const [preProposal, setPreProposal] = useState<PreProposalResponse | null>(null);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [evaluation, setEvaluation] = useState<EvaluationResponse | null>(null);
+  const [translationResult, setTranslationResult] = useState<GeneralTranslateResponse | null>(null);
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [tokenEstimate, setTokenEstimate] = useState({ input: 0, output: 0, total: 0 });
@@ -78,11 +86,11 @@ const App: React.FC = () => {
 
     const PROMPT_SIZES = {
         topicSimple: 200, topicAdvanced: 330, article: 270,
-        preProposal: 670, summarize: 330, evaluate: 500,
+        preProposal: 670, summarize: 330, evaluate: 500, translate: 200
     };
     const OUTPUT_SIZES = {
         topicSimple: 150, topicAdvanced: 300, article: 450,
-        preProposal: 800, summarize: 700, evaluate: 600,
+        preProposal: 800, summarize: 700, evaluate: 600, translate: 0 // Variable
     };
 
     switch (mode) {
@@ -125,6 +133,13 @@ const App: React.FC = () => {
             // Count all text fields
             userText = `${evalStatement} ${evalSignificance} ${evalObjectives} ${evalQuestions} ${evalMethodology}`;
             break;
+        case 'translate':
+            basePromptTokens = PROMPT_SIZES.translate;
+            // Output is roughly equal to input for translation
+            const contentTokens = estimateTokens(translateInput);
+            outputTokens = contentTokens; 
+            userText = translateInput;
+            break;
     }
 
     if (mode !== 'summarize') {
@@ -135,7 +150,8 @@ const App: React.FC = () => {
                      (mode === 'article' && articleKeywords.trim() !== '') ||
                      (mode === 'pre-proposal' && preProposalTopic.trim() !== '') ||
                      (mode === 'summarize' && uploadedFile !== null) ||
-                     (mode === 'evaluate' && (evalStatement.trim() !== '' || evalSignificance.trim() !== '' || evalObjectives.trim() !== '' || evalQuestions.trim() !== '' || evalMethodology.trim() !== ''));
+                     (mode === 'evaluate' && (evalStatement.trim() !== '' || evalSignificance.trim() !== '' || evalObjectives.trim() !== '' || evalQuestions.trim() !== '' || evalMethodology.trim() !== '')) ||
+                     (mode === 'translate' && translateInput.trim() !== '');
 
     if (!hasInput) {
         setTokenEstimate({ input: 0, output: 0, total: 0 });
@@ -153,7 +169,7 @@ const App: React.FC = () => {
         total: finalInput + finalOutput,
     });
 
-  }, [mode, topicMode, fieldOfStudy, advancedKeywords, targetPopulation, articleKeywords, preProposalTopic, uploadedFile, evalStatement, evalSignificance, evalObjectives, evalQuestions, evalMethodology]);
+  }, [mode, topicMode, fieldOfStudy, advancedKeywords, targetPopulation, articleKeywords, preProposalTopic, uploadedFile, evalStatement, evalSignificance, evalObjectives, evalQuestions, evalMethodology, translateInput]);
 
   const handleModeChange = (newMode: AppMode) => {
     setMode(newMode);
@@ -169,6 +185,7 @@ const App: React.FC = () => {
     setPreProposal(null);
     setSummary(null);
     setEvaluation(null);
+    setTranslationResult(null);
     setError(null);
     
     // Reset Eval inputs
@@ -177,6 +194,9 @@ const App: React.FC = () => {
     setEvalObjectives('');
     setEvalQuestions('');
     setEvalMethodology('');
+
+    // Reset Translate
+    setTranslateInput('');
   };
   
   const handleTopicModeChange = (newTopicMode: TopicMode) => {
@@ -270,6 +290,17 @@ const App: React.FC = () => {
         setError("لطفاً حداقل یک بخش از پروپوزال را برای ارزیابی تکمیل کنید.");
         return;
     }
+    if (mode === 'translate') {
+        if (!translateInput.trim()) {
+            setError("لطفاً متن را برای ترجمه وارد کنید.");
+            return;
+        }
+        const wordCount = translateInput.trim().split(/\s+/).length;
+        if (wordCount > 500) {
+            setError("متن ورودی نباید بیشتر از 500 کلمه باشد.");
+            return;
+        }
+    }
 
     setIsLoading(true);
     setError(null);
@@ -279,6 +310,7 @@ const App: React.FC = () => {
     setPreProposal(null);
     setSummary(null);
     setEvaluation(null);
+    setTranslationResult(null);
 
     const TRUNCATE_LIMIT = 15000; 
 
@@ -339,6 +371,13 @@ const App: React.FC = () => {
           };
           const result = await evaluateProposal(params);
           setEvaluation(result);
+      } else if (mode === 'translate') {
+          const result = await translateGeneralText({
+            text: translateInput,
+            tone: translateTone,
+            direction: translateDirection
+          });
+          setTranslationResult(result);
       }
     } catch (err) {
       if (err instanceof Error) {
@@ -349,7 +388,7 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [isLoading, mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, academicLevel, researchMethod, targetPopulation, preProposalTopic, uploadedFile, evalStatement, evalSignificance, evalObjectives, evalQuestions, evalMethodology]);
+  }, [isLoading, mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, academicLevel, researchMethod, targetPopulation, preProposalTopic, uploadedFile, evalStatement, evalSignificance, evalObjectives, evalQuestions, evalMethodology, translateInput, translateTone, translateDirection]);
   
   const handleCopyTopic = useCallback((index: number) => {
     const topicText = topicItems[index]?.persian;
@@ -397,7 +436,8 @@ const App: React.FC = () => {
     (mode === 'article' && !articleKeywords.trim()) ||
     (mode === 'pre-proposal' && !preProposalTopic.trim()) ||
     (mode === 'summarize' && !uploadedFile) || 
-    (mode === 'evaluate' && !(evalStatement.trim() || evalSignificance.trim() || evalObjectives.trim() || evalQuestions.trim() || evalMethodology.trim()));
+    (mode === 'evaluate' && !(evalStatement.trim() || evalSignificance.trim() || evalObjectives.trim() || evalQuestions.trim() || evalMethodology.trim())) ||
+    (mode === 'translate' && !translateInput.trim());
 
 
   const buttonLabels = {
@@ -405,7 +445,8 @@ const App: React.FC = () => {
     article: "جستجوی مقالات",
     'pre-proposal': "ایجاد پیش پروپوزال",
     summarize: "خلاصه کن",
-    evaluate: "ارزیابی پروپوزال"
+    evaluate: "ارزیابی پروپوزال",
+    translate: "ترجمه کن"
   };
 
   const renderSimpleTopicForm = () => (
@@ -587,6 +628,68 @@ const App: React.FC = () => {
         </div>
     </div>
   );
+
+  const renderTranslateForm = () => (
+      <div className="w-full space-y-4">
+          <div className="relative">
+             <div className="flex justify-between items-center mb-1">
+                <span className="text-slate-300 text-sm font-semibold">متن ورودی</span>
+                <span className={`text-xs ${translateInput.trim().split(/\s+/).length > 500 ? 'text-red-500' : 'text-slate-400'}`}>
+                    {translateInput.trim() ? translateInput.trim().split(/\s+/).length : 0} / 500 کلمه
+                </span>
+             </div>
+             <textarea
+                value={translateInput}
+                onChange={(e) => setTranslateInput(e.target.value)}
+                placeholder="متن خود را برای ترجمه وارد کنید..."
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 px-4 focus:ring-2 focus:ring-cyan-500 outline-none text-base min-h-[150px]"
+                disabled={isLoading}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-slate-300">
+             {/* Direction */}
+             <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <h3 className="font-semibold mb-3 flex items-center gap-2 text-sm">
+                    <LanguageIcon />
+                    جهت ترجمه
+                </h3>
+                <div className="flex gap-x-4 flex-wrap">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="direction" value="fa-en" checked={translateDirection === 'fa-en'} onChange={() => setTranslateDirection('fa-en')} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        فارسی به انگلیسی
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="direction" value="en-fa" checked={translateDirection === 'en-fa'} onChange={() => setTranslateDirection('en-fa')} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        انگلیسی به فارسی
+                    </label>
+                </div>
+             </div>
+
+             {/* Tone */}
+             <div className="bg-slate-900/50 p-4 rounded-lg border border-slate-700">
+                <h3 className="font-semibold mb-3 text-sm flex items-center gap-1">
+                    لحن ترجمه
+                     <Tooltip text="رسمی: مناسب متون اداری. غیررسمی: دوستانه و محاوره. آکادمیک: مناسب مقالات علمی." />
+                </h3>
+                <div className="flex gap-x-4 gap-y-2 flex-wrap">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="tone" value="formal" checked={translateTone === 'formal'} onChange={(e) => setTranslateTone(e.target.value as TranslationTone)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        رسمی (Official)
+                    </label>
+                     <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="tone" value="academic" checked={translateTone === 'academic'} onChange={(e) => setTranslateTone(e.target.value as TranslationTone)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        آکادمیک (Academic)
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input type="radio" name="tone" value="informal" checked={translateTone === 'informal'} onChange={(e) => setTranslateTone(e.target.value as TranslationTone)} className="form-radio bg-slate-700 border-slate-600 text-cyan-500 focus:ring-cyan-500 w-4 h-4" />
+                        غیررسمی (Informal)
+                    </label>
+                </div>
+             </div>
+          </div>
+      </div>
+  );
   
   const renderPreProposalForm = () => (
     <div className="w-full space-y-4">
@@ -658,7 +761,7 @@ const App: React.FC = () => {
     </div>
   );
 
-  const isMultiInputForm = (mode === 'topic' && topicMode === 'advanced') || mode === 'pre-proposal' || mode === 'evaluate';
+  const isMultiInputForm = (mode === 'topic' && topicMode === 'advanced') || mode === 'pre-proposal' || mode === 'evaluate' || mode === 'translate';
   const isSingleInputForm = (mode === 'topic' && topicMode === 'simple') || mode === 'article';
   const isFileUploadForm = mode === 'summarize';
 
@@ -684,6 +787,9 @@ const App: React.FC = () => {
             <button onClick={() => handleModeChange('evaluate')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'evaluate' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
               ارزیابی پروپوزال
             </button>
+             <button onClick={() => handleModeChange('translate')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'translate' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
+              مترجم هوشمند
+            </button>
           </div>
         </div>
         
@@ -705,6 +811,7 @@ const App: React.FC = () => {
             {mode === 'pre-proposal' && renderPreProposalForm()}
             {mode === 'summarize' && renderFileUploadForm('فایل مقاله خود را اینجا بکشید یا کلیک کنید')}
             {mode === 'evaluate' && renderEvaluationForm()}
+            {mode === 'translate' && renderTranslateForm()}
             
             <button
               type="submit"
@@ -784,6 +891,16 @@ const App: React.FC = () => {
             <div className="animate-fade-in">
               <EvaluationCard data={evaluation} />
             </div>
+          )}
+
+          {translationResult && mode === 'translate' && (
+              <div className="animate-fade-in">
+                  <TranslateResultCard 
+                    originalText={translateInput} 
+                    translatedText={translationResult.translation} 
+                    direction={translateDirection}
+                  />
+              </div>
           )}
         </div>
       </main>

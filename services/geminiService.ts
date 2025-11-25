@@ -1,5 +1,5 @@
 
-import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent } from '../types';
+import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent, GeneralTranslateRequest, GeneralTranslateResponse } from '../types';
 
 async function handleResponseError(response: Response): Promise<string> {
     let errorMsg = `درخواست با کد وضعیت ${response.status} با شکست مواجه شد`;
@@ -170,4 +170,29 @@ export async function evaluateProposal(data: ProposalContent): Promise<Evaluatio
       error instanceof Error ? error.message : "یک خطای ناشناخته در شبکه رخ داد."
     );
   }
+}
+
+export async function translateGeneralText(params: GeneralTranslateRequest): Promise<GeneralTranslateResponse> {
+    try {
+        const response = await fetch('/api/general-translate', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(params),
+        });
+
+        if (!response.ok) {
+            const errorMessage = await handleResponseError(response);
+            throw new Error(errorMessage);
+        }
+
+        const data: GeneralTranslateResponse = await response.json();
+        return data;
+    } catch (error) {
+        console.error("خطا در ترجمه متن:", error);
+        throw new Error(
+            error instanceof Error ? error.message : "یک خطای ناشناخته در شبکه رخ داد."
+        );
+    }
 }
