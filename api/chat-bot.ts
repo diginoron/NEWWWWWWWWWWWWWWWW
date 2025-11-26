@@ -27,7 +27,7 @@ export default async function handler(request: Request) {
   });
 
   try {
-    const { messages } = await request.json();
+    const { messages }: { messages: ChatMessage[] } = await request.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return new Response(JSON.stringify({ error: 'تاریخچه پیام‌ها الزامی است.' }), {
