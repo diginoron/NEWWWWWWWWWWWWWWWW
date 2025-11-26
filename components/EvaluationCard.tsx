@@ -78,7 +78,7 @@ const EvaluationCard: React.FC<EvaluationCardProps> = ({ data }) => {
           rel="noopener noreferrer"
           className="inline-flex items-center justify-center gap-2 bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg shadow-teal-600/40 text-lg"
         >
-          <span>دریافت مشاوره تخصصی</span>
+          <span>دریافت مشاوره تخصصی گروه کاسپین تز</span>
           <ExternalLinkIcon />
         </a>
       </div>

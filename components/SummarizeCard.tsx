@@ -56,7 +56,7 @@ const SummarizeCard: React.FC<SummarizeCardProps> = ({ data }) => {
           rel="noopener noreferrer"
           className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg shadow-teal-600/40 text-lg"
         >
-          دریافت مشاوره تخصصی
+          دریافت مشاوره تخصصی گروه کاسپین تز
         </a>
       </div>
     </div>

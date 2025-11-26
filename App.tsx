@@ -96,7 +96,7 @@ const App: React.FC = () => {
             if (topicMode === 'simple') {
                 basePromptTokens = PROMPT_SIZES.topicSimple;
                 outputTokens = OUTPUT_SIZES.topicSimple;
-                userText = fieldOfStudy;
+                userText = `${fieldOfStudy} ${advancedKeywords}`;
             } else {
                 basePromptTokens = PROMPT_SIZES.topicAdvanced;
                 outputTokens = OUTPUT_SIZES.topicAdvanced;
@@ -316,7 +316,11 @@ const App: React.FC = () => {
       if (mode === 'topic') {
         let result: ThesisSuggestionResponse;
         if (topicMode === 'simple') {
-          result = await generateThesisSuggestions({ fieldOfStudy });
+          // Pass advancedKeywords if user entered them in simple mode too
+          result = await generateThesisSuggestions({ 
+              fieldOfStudy,
+              keywords: advancedKeywords 
+            });
         } else {
           result = await generateThesisSuggestions({ 
             fieldOfStudy, 
@@ -448,18 +452,33 @@ const App: React.FC = () => {
   };
 
   const renderSimpleTopicForm = () => (
-     <div className="relative flex-grow">
-        <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400">
-            <BookOpenIcon />
-        </span>
-        <input
-            type="text"
-            value={fieldOfStudy}
-            onChange={(e) => setFieldOfStudy(e.target.value)}
-            placeholder="رشته تحصیلی خود را وارد کنید (مثلا: مهندسی کامپیوتر)"
-            className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-lg"
-            disabled={isLoading}
-        />
+     <div className="relative flex-grow flex flex-col gap-4 w-full">
+        <div className="relative w-full">
+            <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400">
+                <BookOpenIcon />
+            </span>
+            <input
+                type="text"
+                value={fieldOfStudy}
+                onChange={(e) => setFieldOfStudy(e.target.value)}
+                placeholder="رشته تحصیلی خود را وارد کنید (مثلا: مهندسی کامپیوتر)"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-lg"
+                disabled={isLoading}
+            />
+        </div>
+        <div className="relative w-full">
+             <span className="absolute inset-y-0 right-0 flex items-center pr-4 text-slate-400">
+                <SearchIcon />
+            </span>
+            <input
+                type="text"
+                value={advancedKeywords}
+                onChange={(e) => setAdvancedKeywords(e.target.value)}
+                placeholder="کلیدواژه‌های دلخواه (اختیاری)"
+                className="w-full bg-slate-900 border border-slate-700 rounded-lg py-3 pr-12 pl-4 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 outline-none transition-colors duration-200 text-sm"
+                disabled={isLoading}
+            />
+        </div>
     </div>
   );
 
@@ -759,8 +778,8 @@ const App: React.FC = () => {
     </div>
   );
 
-  const isMultiInputForm = (mode === 'topic' && topicMode === 'advanced') || mode === 'pre-proposal' || mode === 'evaluate' || mode === 'translate';
-  const isSingleInputForm = (mode === 'topic' && topicMode === 'simple') || mode === 'article';
+  const isMultiInputForm = (mode === 'topic' && topicMode === 'advanced') || mode === 'pre-proposal' || mode === 'evaluate' || mode === 'translate' || (mode === 'topic' && topicMode === 'simple');
+  const isSingleInputForm = false; // With the new simple form, it's also multi-line (or at least stacked)
   const isFileUploadForm = mode === 'summarize';
 
   return (
@@ -864,7 +883,7 @@ const App: React.FC = () => {
                     rel="noopener noreferrer"
                     className="inline-block bg-teal-600 hover:bg-teal-500 text-white font-bold py-3 px-8 rounded-lg transition-all duration-300 transform hover:scale-105 shadow-lg shadow-teal-600/40 text-lg"
                   >
-                    دریافت مشاوره تخصصی
+                   دریافت مشاوره تخصصی گروه کاسپین تز
                   </a>
                 </div>
               </>
