@@ -11,9 +11,10 @@ import PreProposalCard from './components/PreProposalCard';
 import SummarizeCard from './components/SummarizeCard';
 import EvaluationCard from './components/EvaluationCard';
 import TranslateResultCard from './components/TranslateResultCard';
+import ChatCard from './components/ChatCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorAlert from './components/ErrorAlert';
-import { BookOpenIcon, ChevronLeftIcon, FileTextIcon, SearchIcon, UsersIcon, HelpCircleIcon, UploadCloudIcon, LanguageIcon } from './components/Icons';
+import { BookOpenIcon, ChevronLeftIcon, FileTextIcon, SearchIcon, UsersIcon, HelpCircleIcon, UploadCloudIcon, LanguageIcon, MessageSquareIcon } from './components/Icons';
 import TokenEstimator from './components/TokenEstimator';
 
 declare global {
@@ -84,11 +85,11 @@ const App: React.FC = () => {
 
     const PROMPT_SIZES = {
         topicSimple: 200, topicAdvanced: 330, article: 270,
-        preProposal: 670, summarize: 330, evaluate: 500, translate: 200
+        preProposal: 670, summarize: 330, evaluate: 500, translate: 200, chat: 100
     };
     const OUTPUT_SIZES = {
         topicSimple: 150, topicAdvanced: 300, article: 450,
-        preProposal: 800, summarize: 700, evaluate: 600, translate: 0 // Variable
+        preProposal: 800, summarize: 700, evaluate: 600, translate: 0, chat: 150 // Variable
     };
 
     switch (mode) {
@@ -138,6 +139,10 @@ const App: React.FC = () => {
             outputTokens = contentTokens; 
             userText = translateInput;
             break;
+        case 'chat':
+             // For chat, we don't display a constant token estimate as it updates dynamically in the component
+             setTokenEstimate({ input: 0, output: 0, total: 0 });
+             return;
     }
 
     if (mode !== 'summarize') {
@@ -448,7 +453,8 @@ const App: React.FC = () => {
     'pre-proposal': "ایجاد پیش پروپوزال",
     summarize: "خلاصه کن",
     evaluate: "ارزیابی پروپوزال",
-    translate: "ترجمه کن"
+    translate: "ترجمه کن",
+    chat: "" // No general submit button for chat
   };
 
   const renderSimpleTopicForm = () => (
@@ -779,7 +785,7 @@ const App: React.FC = () => {
   );
 
   const isMultiInputForm = (mode === 'topic' && topicMode === 'advanced') || mode === 'pre-proposal' || mode === 'evaluate' || mode === 'translate' || (mode === 'topic' && topicMode === 'simple');
-  const isSingleInputForm = false; // With the new simple form, it's also multi-line (or at least stacked)
+  const isSingleInputForm = false; 
   const isFileUploadForm = mode === 'summarize';
 
   return (
@@ -794,6 +800,10 @@ const App: React.FC = () => {
             <div className="bg-slate-800 p-1 rounded-lg flex gap-1 flex-wrap justify-center">
               <button onClick={() => handleModeChange('topic')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'topic' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
                 پیشنهاد موضوع
+              </button>
+               <button onClick={() => handleModeChange('chat')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors flex items-center gap-1 ${mode === 'chat' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
+                 <MessageSquareIcon />
+                 مشاوره هوشمند
               </button>
               <button onClick={() => handleModeChange('article')} className={`px-3 py-2 rounded-md text-xs sm:text-sm font-semibold transition-colors ${mode === 'article' ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
                 جستجوی مقاله
@@ -822,45 +832,48 @@ const App: React.FC = () => {
               </div>
           )}
 
-
-          <div className="bg-slate-800/50 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-2xl border border-slate-700 transition-all duration-300">
-            <form onSubmit={handleSubmit} className={`flex ${isMultiInputForm || isFileUploadForm ? 'flex-col' : 'flex-col sm:flex-row'} items-start gap-4`}>
-              {mode === 'topic' && topicMode === 'simple' && renderSimpleTopicForm()}
-              {mode === 'topic' && topicMode === 'advanced' && renderAdvancedTopicForm()}
-              {mode === 'article' && renderArticleForm()}
-              {mode === 'pre-proposal' && renderPreProposalForm()}
-              {mode === 'summarize' && renderFileUploadForm('فایل مقاله خود را اینجا بکشید یا کلیک کنید')}
-              {mode === 'evaluate' && renderEvaluationForm()}
-              {mode === 'translate' && renderTranslateForm()}
-              
-              <button
-                type="submit"
-                disabled={isSubmitDisabled}
-                className={`flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg shadow-cyan-600/30 text-lg ${isMultiInputForm || isFileUploadForm ? 'w-full mt-2' : ''} ${isSingleInputForm ? 'w-full sm:w-auto self-center sm:self-auto' : ''}`}
-              >
-                {isLoading ? (
-                  <>
-                    <LoadingSpinner />
-                    <span>در حال پردازش...</span>
-                  </>
-                ) : (
-                  <>
-                    <span>{buttonLabels[mode]}</span>
-                    <ChevronLeftIcon />
-                  </>
-                )}
-              </button>
-            </form>
-            <TokenEstimator 
-              input={tokenEstimate.input} 
-              output={tokenEstimate.output}
-              total={tokenEstimate.total}
-              note={(mode === 'summarize') && uploadedFile ? 'به دلیل محدودیت‌های سرور، تنها بخشی از ابتدای فایل (حدود 15000 کاراکتر) برای پردازش ارسال می‌شود.' : undefined}
-            />
-          </div>
+          {mode === 'chat' ? (
+              <ChatCard />
+          ) : (
+             <div className="bg-slate-800/50 backdrop-blur-sm p-6 sm:p-8 rounded-2xl shadow-2xl border border-slate-700 transition-all duration-300">
+                <form onSubmit={handleSubmit} className={`flex ${isMultiInputForm || isFileUploadForm ? 'flex-col' : 'flex-col sm:flex-row'} items-start gap-4`}>
+                {mode === 'topic' && topicMode === 'simple' && renderSimpleTopicForm()}
+                {mode === 'topic' && topicMode === 'advanced' && renderAdvancedTopicForm()}
+                {mode === 'article' && renderArticleForm()}
+                {mode === 'pre-proposal' && renderPreProposalForm()}
+                {mode === 'summarize' && renderFileUploadForm('فایل مقاله خود را اینجا بکشید یا کلیک کنید')}
+                {mode === 'evaluate' && renderEvaluationForm()}
+                {mode === 'translate' && renderTranslateForm()}
+                
+                <button
+                    type="submit"
+                    disabled={isSubmitDisabled}
+                    className={`flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-slate-600 disabled:cursor-not-allowed text-white font-bold py-3 px-6 rounded-lg transition-all duration-300 transform hover:scale-105 disabled:scale-100 shadow-lg shadow-cyan-600/30 text-lg ${isMultiInputForm || isFileUploadForm ? 'w-full mt-2' : ''} ${isSingleInputForm ? 'w-full sm:w-auto self-center sm:self-auto' : ''}`}
+                >
+                    {isLoading ? (
+                    <>
+                        <LoadingSpinner />
+                        <span>در حال پردازش...</span>
+                    </>
+                    ) : (
+                    <>
+                        <span>{buttonLabels[mode]}</span>
+                        <ChevronLeftIcon />
+                    </>
+                    )}
+                </button>
+                </form>
+                <TokenEstimator 
+                input={tokenEstimate.input} 
+                output={tokenEstimate.output}
+                total={tokenEstimate.total}
+                note={(mode === 'summarize') && uploadedFile ? 'به دلیل محدودیت‌های سرور، تنها بخشی از ابتدای فایل (حدود 15000 کاراکتر) برای پردازش ارسال می‌شود.' : undefined}
+                />
+            </div>
+          )}
 
           <div className="mt-8">
-            {error && <ErrorAlert message={error} />}
+            {error && mode !== 'chat' && <ErrorAlert message={error} />}
             
             {suggestions && mode === 'topic' && (
               <>

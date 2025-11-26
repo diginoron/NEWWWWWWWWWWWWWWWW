@@ -14,6 +14,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentMode, onModeChange }) => {
   const navItems: { id: AppMode | 'home'; label: string }[] = [
     { id: 'home', label: 'صفحه نخست' },
     { id: 'topic', label: 'پیشنهاد موضوع' },
+    { id: 'chat', label: 'مشاوره هوشمند' },
     { id: 'article', label: 'جستجوی مقاله' },
     { id: 'pre-proposal', label: 'پیش پروپوزال' },
     { id: 'summarize', label: 'خلاصه سازی' },

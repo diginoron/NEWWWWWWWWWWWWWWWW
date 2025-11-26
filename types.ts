@@ -92,6 +92,20 @@ export interface GeneralTranslateResponse {
     translation: string;
 }
 
+// Chat Types
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatRequest {
+  messages: ChatMessage[];
+}
+
+export interface ChatResponse {
+  response: string;
+}
+
 // App Navigation Types
-export type AppMode = 'topic' | 'article' | 'pre-proposal' | 'summarize' | 'evaluate' | 'translate';
+export type AppMode = 'topic' | 'article' | 'pre-proposal' | 'summarize' | 'evaluate' | 'translate' | 'chat';
 export type TopicMode = 'simple' | 'advanced';
