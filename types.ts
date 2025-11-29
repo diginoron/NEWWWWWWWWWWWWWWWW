@@ -107,5 +107,5 @@ export interface ChatResponse {
 }
 
 // App Navigation Types
-export type AppMode = 'topic' | 'article' | 'pre-proposal' | 'summarize' | 'evaluate' | 'translate' | 'chat';
+export type AppMode = 'home' | 'topic' | 'article' | 'pre-proposal' | 'summarize' | 'evaluate' | 'translate' | 'chat' | 'contact';
 export type TopicMode = 'simple' | 'advanced';

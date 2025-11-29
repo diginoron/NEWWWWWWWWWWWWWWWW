@@ -11,7 +11,7 @@ interface NavbarProps {
 const Navbar: React.FC<NavbarProps> = ({ currentMode, onModeChange }) => {
   const [isOpen, setIsOpen] = useState(false);
 
-  const navItems: { id: AppMode; label: string }[] = [
+  const navItems: { id: AppMode | 'home'; label: string }[] = [
     { id: 'home', label: 'صفحه نخست' },
     { id: 'topic', label: 'پیشنهاد موضوع' },
     { id: 'chat', label: 'مشاوره هوشمند' },
@@ -23,8 +23,12 @@ const Navbar: React.FC<NavbarProps> = ({ currentMode, onModeChange }) => {
     { id: 'contact', label: 'ارتباط با مشاور' },
   ];
 
-  const handleNavClick = (id: AppMode) => {
-    onModeChange(id);
+  const handleNavClick = (id: AppMode | 'home') => {
+    if (id === 'home') {
+      onModeChange('topic'); // Reset to default/home view
+    } else {
+      onModeChange(id);
+    }
     setIsOpen(false);
   };
 
@@ -41,7 +45,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentMode, onModeChange }) => {
                   key={item.id}
                   onClick={() => handleNavClick(item.id)}
                   className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
-                    item.id === currentMode
+                    (item.id === 'home' && currentMode === 'topic') || item.id === currentMode
                       ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20'
                       : 'text-slate-300 hover:bg-slate-700 hover:text-white'
                   }`}
@@ -90,7 +94,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentMode, onModeChange }) => {
               key={item.id}
               onClick={() => handleNavClick(item.id)}
               className={`block w-full text-right px-3 py-3 rounded-md text-base font-medium ${
-                 item.id === currentMode
+                 (item.id === 'home' && currentMode === 'topic') || item.id === currentMode
                   ? 'bg-cyan-600 text-white'
                   : 'text-slate-300 hover:bg-slate-700 hover:text-white'
               }`}
