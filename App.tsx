@@ -1,7 +1,7 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal, summarizeArticle, evaluateProposal, translateGeneralText } from './services/geminiService';
-import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent, TranslationTone, TranslationDirection, GeneralTranslateResponse, AppMode, TopicMode } from './types';
+import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, SummaryResponse, EvaluationResponse, TranslationTone, TranslationDirection, GeneralTranslateResponse, AppMode, TopicMode } from './types';
 import Header from './components/Header';
 import Navbar from './components/Navbar';
 import SuggestionCard from './components/SuggestionCard';
@@ -16,7 +16,7 @@ import ContactCard from './components/ContactCard';
 import HomeMenu from './components/HomeMenu';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorAlert from './components/ErrorAlert';
-import { BookOpenIcon, ChevronLeftIcon, FileTextIcon, SearchIcon, UsersIcon, HelpCircleIcon, UploadCloudIcon, LanguageIcon, MessageSquareIcon, PhoneIcon, ZapIcon } from './components/Icons';
+import { BookOpenIcon, FileTextIcon, SearchIcon, UsersIcon, HelpCircleIcon, UploadCloudIcon, LanguageIcon, ZapIcon } from './components/Icons';
 import TokenEstimator from './components/TokenEstimator';
 
 declare global {
