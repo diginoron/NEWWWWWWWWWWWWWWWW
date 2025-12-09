@@ -15,7 +15,7 @@ const LiteratureReviewCard: React.FC<LiteratureReviewCardProps> = ({ data }) => 
   return (
     <div className="bg-slate-800/60 backdrop-blur-sm p-6 sm:p-8 rounded-xl shadow-lg border border-slate-700 space-y-8 animate-fade-in">
       <h2 className="text-2xl font-semibold text-center text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-teal-500 mb-6">
-        پیشینه پژوهش پیشنهادی (Civilica)
+        پیشینه پژوهش (مستخرج از Civilica)
       </h2>
 
       <div className="space-y-6">
@@ -29,14 +29,26 @@ const LiteratureReviewCard: React.FC<LiteratureReviewCardProps> = ({ data }) => 
                  <p className="text-slate-200 leading-8 text-justify">
                    {item.paragraph}
                  </p>
-                 <div className="mt-3 pt-3 border-t border-slate-700/50 flex justify-between items-center">
+                 <div className="mt-3 pt-3 border-t border-slate-700/50 flex flex-wrap justify-between items-center gap-2">
                     <span className="text-xs text-slate-500">شماره {index + 1}</span>
-                    <button 
-                        onClick={() => handleCopy(item.paragraph)}
-                        className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1"
-                    >
-                        <CopyIcon /> کپی متن
-                    </button>
+                    <div className="flex items-center gap-3">
+                        {item.link && (
+                            <a 
+                                href={item.link} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-xs text-teal-400 hover:text-teal-300 flex items-center gap-1 transition-colors bg-teal-900/30 px-2 py-1 rounded"
+                            >
+                                <ExternalLinkIcon /> مشاهده اصل مقاله
+                            </a>
+                        )}
+                        <button 
+                            onClick={() => handleCopy(item.paragraph)}
+                            className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors"
+                        >
+                            <CopyIcon /> کپی متن
+                        </button>
+                    </div>
                  </div>
               </div>
             </div>
@@ -65,7 +77,7 @@ const LiteratureReviewCard: React.FC<LiteratureReviewCardProps> = ({ data }) => 
       
       <div className="text-center pt-4">
         <p className="text-slate-300 mb-4">
-            برای دانلود اصل مقالات به وب‌سایت سیویلیکا مراجعه کنید یا برای انجام فصل دوم پایان‌نامه از خدمات کاسپین تز استفاده نمایید.
+            مقالات فوق با استفاده از جستجوی هوشمند گوگل در پایگاه سیویلیکا یافته شده‌اند. برای اطمینان از صحت کامل جزئیات، حتماً اصل مقاله را بررسی کنید.
         </p>
         <a
           href="https://caspianthesis.com/"

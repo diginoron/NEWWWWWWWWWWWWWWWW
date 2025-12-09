@@ -1,5 +1,5 @@
 
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import type { LiteratureReviewResponse } from '../types';
 
 export const config = {
@@ -14,17 +14,17 @@ export default async function handler(request: Request) {
     });
   }
 
-  if (!process.env.AVALAI_API_KEY) {
+  // Use API_KEY if available (standard), otherwise fallback to AVALAI_API_KEY if that's what is provided
+  const apiKey = process.env.API_KEY || process.env.AVALAI_API_KEY;
+
+  if (!apiKey) {
     return new Response(JSON.stringify({ error: 'خطای پیکربندی سرور: کلید API یافت نشد.' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
   }
   
-  const client = new OpenAI({
-    apiKey: process.env.AVALAI_API_KEY,
-    baseURL: "https://api.avalai.ir/v1",
-  });
+  const ai = new GoogleGenAI({ apiKey });
 
   try {
     const { keywords } = await request.json();
@@ -37,54 +37,64 @@ export default async function handler(request: Request) {
     }
 
     const prompt = `
-      You are an expert academic research assistant familiar with Iranian academic databases like 'Civilica' (civilica.com).
+      You are an expert academic research assistant.
+      
+      **Task:** 
+      Perform a grounded search using Google Search restricted to 'site:civilica.com' to find 5 REAL and DISTINCT research articles relevant to the keywords: "${keywords}".
+      
+      **Instructions:**
+      1.  **Search:** Use the 'googleSearch' tool to find actual papers on Civilica.
+      2.  **Extract:** For each found article, identify:
+          -   Title
+          -   Author(s)
+          -   Year of publication
+          -   Methodology (infer from abstract/snippet if explicit mention is missing)
+          -   Results/Findings (infer from abstract/snippet)
+          -   URL (Link)
+      3.  **Synthesize:** Create a JSON response containing these details.
+      
+      **Output Format:**
+      Return strictly a JSON object with the following structure. Do NOT include markdown code blocks.
 
-      Task:
-      Search for (or simulate) 5 high-quality research articles relevant to the keywords: "${keywords}" that would be found in Civilica.
-
-      For EACH of the 5 articles, provide the following two elements in a structured JSON format:
-
-      1.  **Paragraph (paragraph)**: A summary paragraph in Persian that EXACTLY follows this template:
-          "[Author Last Name] [and colleagues (if >2 authors)] in [Year], with the title "[Title]", examined [Goal/Purpose]. They used [Methodology] and concluded that [Results]."
-          
-          Persian Template Rule:
-          - If 1 author: "نام خانوادگی (سال)"
-          - If 2 authors: "نام خانوادگی1 و نام خانوادگی2 (سال)"
-          - If >2 authors: "نام خانوادگی نفر اول و همکاران (سال)"
-          - Text structure: "... با عنوان «...» به بررسی ... پرداختند. از روش ... استفاده کردند و به این نتیجه رسیدند که ..."
-
-      2.  **Reference (reference)**: The full citation in APA format (American Psychological Association). Use Persian citation format if the article is Persian (which is likely for Civilica).
-
-      Output JSON Structure:
       {
         "items": [
           {
-            "paragraph": "string",
-            "reference": "string"
-          },
-          ...
+            "paragraph": "A summary paragraph in Persian strictly following this template: [Authors] ([Year]) با عنوان «[Title]» به بررسی [Goal] پرداختند. از روش [Methodology] استفاده کردند و به این نتیجه رسیدند که [Results].",
+            "reference": "Full APA citation (Persian or English depending on source).",
+            "link": "The URL of the article on civilica.com"
+          }
         ]
       }
 
-      Do not include any other text, just the JSON object.
+      **Important:**
+      - The articles MUST be real. Do not simulate or hallucinate papers.
+      - If you cannot find exactly 5 from Civilica, find as many as possible (up to 5) from reputable Iranian academic sources.
+      - The 'paragraph' text must be fluent Persian.
     `;
 
-    const completion = await client.chat.completions.create({
+    const response = await ai.models.generateContent({
       model: "gemini-2.5-flash",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" },
-      temperature: 0.6,
+      contents: prompt,
+      config: {
+        tools: [{ googleSearch: {} }],
+        // responseMimeType: "application/json" is not supported with tools in some versions, 
+        // so we rely on the prompt to enforce JSON.
+      },
     });
 
-    const jsonText = completion.choices[0].message.content;
-    if (!jsonText) {
-      throw new Error("پاسخ دریافتی از API نامعتبر است.");
+    let jsonString = response.text || "";
+    // Clean up any markdown formatting if present
+    jsonString = jsonString.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
+
+    let parsedResponse;
+    try {
+        parsedResponse = JSON.parse(jsonString);
+    } catch (e) {
+        throw new Error("فرمت پاسخ مدل معتبر نیست (JSON). لطفا مجددا تلاش کنید.");
     }
 
-    const parsedResponse = JSON.parse(jsonText.trim());
-
     if (!parsedResponse || !Array.isArray(parsedResponse.items)) {
-         throw new Error("ساختار پاسخ API معتبر نیست.");
+         throw new Error("ساختار پاسخ مدل معتبر نیست.");
     }
 
     return new Response(JSON.stringify(parsedResponse as LiteratureReviewResponse), {
@@ -97,11 +107,9 @@ export default async function handler(request: Request) {
     let errorMessage = "یک خطای ناشناخته در سرور رخ داد.";
     let statusCode = 500;
     
-    if (error instanceof OpenAI.APIError) {
-        errorMessage = `فراخوانی API با شکست مواجه شد: ${error.message}`;
-        statusCode = error.status || 500;
-    } else if (error instanceof Error) {
+    if (error instanceof Error) {
         errorMessage = `خطا در پردازش: ${error.message}`;
+        // Map common errors if possible, otherwise generic 500
     }
 
     return new Response(JSON.stringify({ error: errorMessage }), {

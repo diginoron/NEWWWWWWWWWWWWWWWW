@@ -100,6 +100,7 @@ export interface LiteratureReviewRequest {
 export interface LiteratureReviewItem {
     paragraph: string;
     reference: string;
+    link?: string;
 }
 
 export interface LiteratureReviewResponse {
