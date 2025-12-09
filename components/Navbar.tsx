@@ -14,6 +14,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentMode, onModeChange }) => {
   const navItems: { id: AppMode; label: string }[] = [
     { id: 'home', label: 'صفحه نخست' },
     { id: 'topic', label: 'پیشنهاد موضوع' },
+    { id: 'literature', label: 'پیشینه پژوهش' },
     { id: 'chat', label: 'مشاوره هوشمند' },
     { id: 'article', label: 'جستجوی مقاله' },
     { id: 'pre-proposal', label: 'پیش پروپوزال' },
@@ -34,13 +35,13 @@ const Navbar: React.FC<NavbarProps> = ({ currentMode, onModeChange }) => {
         <div className="flex items-center justify-between h-20">
           
           {/* Menu (Right Side in RTL) */}
-          <div className="hidden md:block">
-            <div className="flex items-baseline space-x-reverse space-x-2">
+          <div className="hidden lg:block">
+            <div className="flex items-baseline space-x-reverse space-x-1">
               {navItems.map((item) => (
                 <button
                   key={item.id}
                   onClick={() => handleNavClick(item.id)}
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 ${
+                  className={`px-3 py-2 rounded-md text-sm font-medium transition-all duration-200 whitespace-nowrap ${
                     item.id === currentMode
                       ? 'bg-cyan-600 text-white shadow-md shadow-cyan-600/20'
                       : 'text-slate-300 hover:bg-slate-700 hover:text-white'
@@ -53,7 +54,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentMode, onModeChange }) => {
           </div>
 
            {/* Mobile Menu Button (Right Side in RTL) */}
-           <div className="flex md:hidden">
+           <div className="flex lg:hidden">
             <button
               onClick={() => setIsOpen(!isOpen)}
               type="button"
@@ -83,7 +84,7 @@ const Navbar: React.FC<NavbarProps> = ({ currentMode, onModeChange }) => {
       </div>
 
       {/* Mobile Menu (Waterfall style) */}
-      <div className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`} id="mobile-menu">
+      <div className={`lg:hidden overflow-hidden transition-all duration-300 ease-in-out ${isOpen ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}`} id="mobile-menu">
         <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3 bg-slate-800 border-t border-slate-700">
           {navItems.map((item) => (
             <button

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal, summarizeArticle, evaluateProposal, translateGeneralText } from './services/geminiService';
-import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, SummaryResponse, EvaluationResponse, TranslationTone, TranslationDirection, GeneralTranslateResponse, AppMode, TopicMode } from './types';
+import { generateThesisSuggestions, findRelevantArticles, translateText, generatePreProposal, summarizeArticle, evaluateProposal, translateGeneralText, generateLiteratureReview } from './services/geminiService';
+import type { ThesisSuggestionResponse, Article, AcademicLevel, ResearchMethod, PreProposalResponse, SummaryResponse, EvaluationResponse, TranslationTone, TranslationDirection, GeneralTranslateResponse, AppMode, TopicMode, LiteratureReviewResponse } from './types';
 import Header from './components/Header';
 import Navbar from './components/Navbar';
 import SuggestionCard from './components/SuggestionCard';
@@ -14,6 +14,7 @@ import TranslateResultCard from './components/TranslateResultCard';
 import ChatCard from './components/ChatCard';
 import ContactCard from './components/ContactCard';
 import HomeMenu from './components/HomeMenu';
+import LiteratureReviewCard from './components/LiteratureReviewCard';
 import LoadingSpinner from './components/LoadingSpinner';
 import ErrorAlert from './components/ErrorAlert';
 import { BookOpenIcon, FileTextIcon, SearchIcon, UsersIcon, HelpCircleIcon, UploadCloudIcon, LanguageIcon, ZapIcon } from './components/Icons';
@@ -45,6 +46,7 @@ const App: React.FC = () => {
   const [fieldOfStudy, setFieldOfStudy] = useState('');
   const [articleKeywords, setArticleKeywords] = useState('');
   const [advancedKeywords, setAdvancedKeywords] = useState('');
+  const [literatureKeywords, setLiteratureKeywords] = useState('');
   const [targetPopulation, setTargetPopulation] = useState('');
   const [academicLevel, setAcademicLevel] = useState<AcademicLevel>('arshad');
   const [researchMethod, setResearchMethod] = useState<ResearchMethod>('quantitative');
@@ -71,6 +73,7 @@ const App: React.FC = () => {
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
   const [evaluation, setEvaluation] = useState<EvaluationResponse | null>(null);
   const [translationResult, setTranslationResult] = useState<GeneralTranslateResponse | null>(null);
+  const [literatureReview, setLiteratureReview] = useState<LiteratureReviewResponse | null>(null);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,11 +90,11 @@ const App: React.FC = () => {
 
     const PROMPT_SIZES = {
         topicSimple: 200, topicAdvanced: 330, article: 270,
-        preProposal: 670, summarize: 330, evaluate: 500, translate: 200, chat: 100, contact: 0, home: 0
+        preProposal: 670, summarize: 330, evaluate: 500, translate: 200, chat: 100, contact: 0, home: 0, literature: 400
     };
     const OUTPUT_SIZES = {
         topicSimple: 150, topicAdvanced: 300, article: 450,
-        preProposal: 800, summarize: 700, evaluate: 600, translate: 0, chat: 150, contact: 0, home: 0
+        preProposal: 800, summarize: 700, evaluate: 600, translate: 0, chat: 150, contact: 0, home: 0, literature: 800
     };
 
     switch (mode) {
@@ -110,6 +113,11 @@ const App: React.FC = () => {
             basePromptTokens = PROMPT_SIZES.article;
             outputTokens = OUTPUT_SIZES.article;
             userText = articleKeywords;
+            break;
+        case 'literature':
+            basePromptTokens = PROMPT_SIZES.literature;
+            outputTokens = OUTPUT_SIZES.literature;
+            userText = literatureKeywords;
             break;
         case 'pre-proposal':
             basePromptTokens = PROMPT_SIZES.preProposal;
@@ -158,7 +166,7 @@ const App: React.FC = () => {
     const total = inputTokens + outputTokens;
     setTokenEstimate({ input: inputTokens, output: outputTokens, total });
 
-  }, [mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, targetPopulation, preProposalTopic, uploadedFile, evalStatement, evalSignificance, evalObjectives, evalQuestions, evalMethodology, translateInput]);
+  }, [mode, topicMode, fieldOfStudy, articleKeywords, advancedKeywords, literatureKeywords, targetPopulation, preProposalTopic, uploadedFile, evalStatement, evalSignificance, evalObjectives, evalQuestions, evalMethodology, translateInput]);
 
 
   const handleGenerateSuggestions = async (e: React.FormEvent) => {
@@ -230,6 +238,24 @@ const App: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+  
+  const handleLiteratureReview = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!literatureKeywords.trim()) return;
+
+      setIsLoading(true);
+      setError(null);
+      setLiteratureReview(null);
+
+      try {
+          const result = await generateLiteratureReview(literatureKeywords);
+          setLiteratureReview(result);
+      } catch (err) {
+          setError(err instanceof Error ? err.message : 'خطا در ایجاد پیشینه پژوهش.');
+      } finally {
+          setIsLoading(false);
+      }
   };
 
   const handleGeneratePreProposal = async (e: React.FormEvent) => {
@@ -500,6 +526,42 @@ const App: React.FC = () => {
                             />
                         </div>
                     )}
+                </div>
+            )}
+            
+            {mode === 'literature' && (
+                <div className="space-y-8 animate-fade-in">
+                    <div className="bg-slate-800/60 backdrop-blur-sm p-6 rounded-xl shadow-lg border border-slate-700">
+                        <form onSubmit={handleLiteratureReview} className="space-y-6">
+                            <div>
+                                <label className="block text-slate-300 text-sm font-bold mb-2">موضوع یا کلیدواژه‌ها</label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none text-slate-500">
+                                        <BookOpenIcon />
+                                    </div>
+                                    <input
+                                        type="text"
+                                        value={literatureKeywords}
+                                        onChange={(e) => setLiteratureKeywords(e.target.value)}
+                                        className="w-full bg-slate-900 border border-slate-700 text-slate-100 text-sm rounded-lg focus:ring-cyan-500 focus:border-cyan-500 block pl-10 pr-10 p-2.5"
+                                        placeholder="مثال: هوش مصنوعی در پزشکی، مدیریت بحران..."
+                                        required
+                                    />
+                                </div>
+                                <p className="text-xs text-slate-500 mt-2">ما بر اساس کلیدواژه‌های شما 5 پیشینه تحقیقاتی معتبر از سیویلیکا را شبیه‌سازی و تولید می‌کنیم.</p>
+                            </div>
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="w-full bg-gradient-to-r from-fuchsia-600 to-purple-600 hover:from-fuchsia-500 hover:to-purple-500 text-white font-bold py-3 px-4 rounded-lg focus:outline-none focus:shadow-outline transition-all duration-300 flex items-center justify-center gap-2"
+                            >
+                                {isLoading ? <LoadingSpinner /> : <BookOpenIcon />}
+                                <span>{isLoading ? 'در حال نگارش پیشینه...' : 'تولید پیشینه پژوهش'}</span>
+                            </button>
+                            <TokenEstimator input={tokenEstimate.input} output={tokenEstimate.output} total={tokenEstimate.total} />
+                        </form>
+                    </div>
+                    {literatureReview && <LiteratureReviewCard data={literatureReview} />}
                 </div>
             )}
 

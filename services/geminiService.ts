@@ -1,5 +1,5 @@
 
-import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent, GeneralTranslateRequest, GeneralTranslateResponse, ChatMessage, ChatResponse } from '../types';
+import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent, GeneralTranslateRequest, GeneralTranslateResponse, ChatMessage, ChatResponse, LiteratureReviewRequest, LiteratureReviewResponse } from '../types';
 
 async function handleResponseError(response: Response): Promise<string> {
     let errorMsg = `درخواست با کد وضعیت ${response.status} با شکست مواجه شد`;
@@ -216,6 +216,31 @@ export async function sendChatMessage(messages: ChatMessage[]): Promise<string> 
         return data.response;
     } catch (error) {
         console.error("خطا در دریافت پاسخ چت:", error);
+        throw new Error(
+            error instanceof Error ? error.message : "یک خطای ناشناخته در شبکه رخ داد."
+        );
+    }
+}
+
+export async function generateLiteratureReview(keywords: string): Promise<LiteratureReviewResponse> {
+    try {
+        const response = await fetch('/api/literature', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ keywords }),
+        });
+
+        if (!response.ok) {
+            const errorMessage = await handleResponseError(response);
+            throw new Error(errorMessage);
+        }
+
+        const data: LiteratureReviewResponse = await response.json();
+        return data;
+    } catch (error) {
+        console.error("خطا در تولید پیشینه پژوهش:", error);
         throw new Error(
             error instanceof Error ? error.message : "یک خطای ناشناخته در شبکه رخ داد."
         );
