@@ -1,5 +1,5 @@
 
-import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent, GeneralTranslateRequest, GeneralTranslateResponse, ChatMessage, ChatResponse, LiteratureReviewRequest, LiteratureReviewResponse } from '../types';
+import type { ThesisSuggestionResponse, ArticleResponse, ThesisSuggestionRequest, PreProposalResponse, PreProposalRequest, SummaryResponse, EvaluationResponse, ProposalContent, GeneralTranslateRequest, GeneralTranslateResponse, ChatMessage, ChatResponse, LiteratureReviewResponse } from '../types';
 
 async function handleResponseError(response: Response): Promise<string> {
     let errorMsg = `درخواست با کد وضعیت ${response.status} با شکست مواجه شد`;
