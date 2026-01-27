@@ -14,8 +14,8 @@ export default async function handler(request: Request) {
     });
   }
 
-  // Use API_KEY if available (standard), otherwise fallback to AVALAI_API_KEY if that's what is provided
-  const apiKey = process.env.API_KEY || process.env.AVALAI_API_KEY;
+  // The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+  const apiKey = process.env.API_KEY;
 
   if (!apiKey) {
     return new Response(JSON.stringify({ error: 'خطای پیکربندی سرور: کلید API یافت نشد.' }), {
@@ -24,7 +24,8 @@ export default async function handler(request: Request) {
     });
   }
   
-  const ai = new GoogleGenAI({ apiKey });
+  // Initialize with named parameter as required.
+  const ai = new GoogleGenAI({ apiKey: apiKey });
 
   try {
     const { keywords } = await request.json();
@@ -72,18 +73,18 @@ export default async function handler(request: Request) {
       - The 'paragraph' text must be fluent Persian.
     `;
 
+    // Use 'gemini-3-flash-preview' for basic text and search tasks.
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash",
+      model: "gemini-3-flash-preview",
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        // responseMimeType: "application/json" is not supported with tools in some versions, 
-        // so we rely on the prompt to enforce JSON.
       },
     });
 
+    // Extract text directly via the .text property (not a method).
     let jsonString = response.text || "";
-    // Clean up any markdown formatting if present
+    // Clean up any markdown formatting if present to ensure valid JSON parsing.
     jsonString = jsonString.replace(/^```json/i, '').replace(/^```/, '').replace(/```$/, '').trim();
 
     let parsedResponse;
@@ -109,7 +110,6 @@ export default async function handler(request: Request) {
     
     if (error instanceof Error) {
         errorMessage = `خطا در پردازش: ${error.message}`;
-        // Map common errors if possible, otherwise generic 500
     }
 
     return new Response(JSON.stringify({ error: errorMessage }), {

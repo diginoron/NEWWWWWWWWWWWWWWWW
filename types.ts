@@ -92,21 +92,6 @@ export interface GeneralTranslateResponse {
     translation: string;
 }
 
-// Literature Review Types
-export interface LiteratureReviewRequest {
-    keywords: string;
-}
-
-export interface LiteratureReviewItem {
-    paragraph: string;
-    reference: string;
-    link?: string;
-}
-
-export interface LiteratureReviewResponse {
-    items: LiteratureReviewItem[];
-}
-
 // Chat Types
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -121,6 +106,17 @@ export interface ChatResponse {
   response: string;
 }
 
+// Literature Review Types
+export interface LiteratureReviewItem {
+  paragraph: string;
+  reference: string;
+  link?: string;
+}
+
+export interface LiteratureReviewResponse {
+  items: LiteratureReviewItem[];
+}
+
 // App Navigation Types
-export type AppMode = 'home' | 'topic' | 'article' | 'pre-proposal' | 'summarize' | 'evaluate' | 'translate' | 'chat' | 'contact' | 'literature';
+export type AppMode = 'home' | 'topic' | 'article' | 'pre-proposal' | 'summarize' | 'evaluate' | 'translate' | 'chat' | 'contact';
 export type TopicMode = 'simple' | 'advanced';

@@ -9,8 +9,7 @@ import {
   ClipboardCheckIcon, 
   LanguageIcon, 
   MessageSquareIcon, 
-  PhoneIcon,
-  BookOpenIcon
+  PhoneIcon
 } from './Icons';
 
 interface HomeMenuProps {
@@ -32,13 +31,6 @@ const HomeMenu: React.FC<HomeMenuProps> = ({ onModeSelect }) => {
       description: 'گفتگو با هوش مصنوعی برای راهنمایی در مسیر پژوهش',
       icon: <MessageSquareIcon />,
       color: 'from-purple-500 to-indigo-500'
-    },
-    {
-      id: 'literature',
-      title: 'پیشینه پژوهش',
-      description: 'تولید پیشینه تحقیق (فصل دوم) بر اساس مقالات سیویلیکا',
-      icon: <BookOpenIcon />,
-      color: 'from-fuchsia-600 to-purple-600'
     },
     {
       id: 'article',
